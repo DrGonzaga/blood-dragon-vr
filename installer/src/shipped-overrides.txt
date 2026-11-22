@@ -1,0 +1,24 @@
+# Settings forced in the shipped fc3vr.ini, whatever the source file says.
+# One per line: section.key=value
+bd.Stage=7
+bd.Engine=1
+# DrGonzaga 2026-11-13: fresh installs use smooth turn and real crouch
+vr.SnapTurn=0
+gameplay.RealCrouch=1
+# DrGonzaga's button layout, which the controls guide describes
+buttons.B=3
+buttons.X=2
+buttons.AB=14
+buttons.XY=15
+buttons.RightStickUp=16
+buttons.QuickThrowSet=1
+buttons.XButtonMode=0
+buttons.MenuMinimap=1
+vr.LeftHanded=0
+# settings removed with dead code in bd125-bd127 (review thread, 22 Nov)
+-holster.QuiverAboveChest
+-holster.QuiverSphereSize
+-gameplay.NoFiringSlowdown
+-gameplay.WeaponSweep
+-aim.NoGameHoldBreath
+-gfx.HideGameReticle

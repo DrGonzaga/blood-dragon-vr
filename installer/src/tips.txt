@@ -1,0 +1,36 @@
+# BEFORE YOU PLAY
+You need Far Cry 3 Blood Dragon from Steam, started once without the mod, and a PC VR setup with a 32-bit OpenXR runtime. On a Quest, use Virtual Desktop and set its OpenXR runtime to VDXR. The main menu of Setup shows whether a 32-bit OpenXR runtime was found.
+
+# NVIDIA CONTROL PANEL
+1. Right-click the desktop and open NVIDIA Control Panel.
+2. Go to 3D Settings, then Manage 3D settings, then the Program Settings tab.
+3. Click Add and pick fc3_blooddragon_d3d11.exe. If it is not in the list, click Browse and open it from the game's bin folder.
+4. Set Threaded optimization to Off. In the Far Cry 3 VR mod this halved the stutters and stopped crashes in the NVIDIA driver.
+5. Optional: set Power management mode to Prefer maximum performance.
+6. Click Apply.
+The game's own "multithreaded rendering" option must stay off too. The mod switches it off for you every time the game starts.
+
+# WALL THE GAME OFF FROM UBISOFT
+Ubisoft's online servers for this game are closed, and a game update can undo the mod. Setup and the mod handle most of this for you:
+* The mod answers the game's own internet calls with "no internet", so the pause menu no longer hangs waiting for Ubisoft. Nothing to set up.
+* Setup can lock the game's Steam update file (an option when you install), so Steam leaves the game alone.
+* Start the game from the Blood Dragon VR shortcut on your desktop. It runs the game's own program directly instead of going through the Steam and Ubisoft launch screens.
+* Turn off overlays for this game: the Steam overlay (game Properties, General), the Ubisoft Connect overlay, the NVIDIA app overlay (Alt+Z, Settings), Discord and any others. Overlays hook the same graphics the mod uses.
+* Don't use Steam's "Verify integrity of game files". If you do, or Steam updates the game anyway, run Setup again and choose Install.
+
+# STARTING A SESSION
+1. Put the headset on and connect to the PC in Virtual Desktop.
+2. Start the game from the Blood Dragon VR shortcut on your desktop.
+3. The game opens in the headset with motion controls.
+
+# THE VR MENU
+* Click both thumbsticks together to open or close the VR menu (Insert on the keyboard). Point with the controller and pull the trigger, or use the stick and A.
+* Controls page: pictures of every button, plus pages that follow your own button settings.
+* Graphics page, Render scale: x1.00 is your headset's recommended size. The default suits a Quest 3. On another headset, set x1.00 and press Save for next start, then restart the game.
+* VR page: smooth or snap turn, comfort vignette, world scale.
+
+# IF SOMETHING GOES WRONG
+* Settings file: the game's bin\fc3vr.ini. Log: bin\fc3vr.log. Send the log with any problem report.
+* Settings in a mess: run Setup, choose Install and untick "Keep my current settings". Your old file is saved in the BloodDragonVR\backup folder.
+* Game won't start, or crashes straight away: open bin\fc3vr.ini and under [bd] set Engine=0. That switches the VR hooks off (flat screen in the headset), which shows whether the mod is the cause. Set it back to 1 afterwards.
+* To remove the mod, run Setup and choose Uninstall, or use Windows Settings, Apps.
