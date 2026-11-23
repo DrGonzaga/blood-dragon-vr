@@ -1,0 +1,49 @@
+name: Feedback or idea
+description: How it plays, what feels good or bad, and ideas for the mod.
+title: "[Feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for playing! Honest opinions are welcome. For something actually broken, please use **Bug report** instead.
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      placeholder: "0.69 BETA (bd129)"
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Headset and how it is connected
+      placeholder: "Quest 3 over Virtual Desktop"
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is it about?
+      options:
+        - Guns, aiming and scopes
+        - Hands, holsters and throwing
+        - Comfort and movement
+        - Graphics and performance
+        - VR menu and settings
+        - New feature idea
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+    validations:
+      required: true
+  - type: dropdown
+    id: enjoy
+    attributes:
+      label: Overall, how is it playing so far?
+      options:
+        - Great
+        - Good, with a few rough edges
+        - Playable but frustrating
+        - Not playable for me

@@ -1,0 +1,110 @@
+name: Bug report
+description: Something is broken, crashes, or looks wrong in VR.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! This is a one-person hobby project, so replies can take a few days.
+        Please check the pinned **Known issues** first, in case it is already being fixed.
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      description: Shown in the VR menu and at the top of `bin\fc3vr.log`.
+      placeholder: "0.69 BETA (bd129)"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - Game won't start / crashes
+        - Graphics or rendering
+        - Controls, hands or guns
+        - Comfort (sickness, view jumps, wrong height)
+        - Performance (low FPS, stutter)
+        - Menus, HUD or text
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Where in the game were you, and what were you doing? Steps to make it happen again help a lot.
+    validations:
+      required: true
+  - type: dropdown
+    id: often
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - Only once so far
+    validations:
+      required: true
+  - type: input
+    id: headset
+    attributes:
+      label: Headset
+      placeholder: "Quest 3, Index, Pico 4, Pimax Crystal..."
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How is the headset connected?
+      options:
+        - Virtual Desktop
+        - Quest Link (cable)
+        - Air Link
+        - Steam Link
+        - Native SteamVR headset (Index, Vive, Pimax...)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: OpenXR runtime
+      description: The one set as active (Virtual Desktop's VDXR, SteamVR, or Meta/Oculus).
+      options:
+        - VDXR (Virtual Desktop)
+        - SteamVR
+        - Meta / Oculus
+        - Not sure
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: pc
+    attributes:
+      label: Graphics card and CPU
+      placeholder: "RTX 4080, Ryzen 7 7800X3D"
+    validations:
+      required: true
+  - type: input
+    id: refresh
+    attributes:
+      label: Headset refresh rate and resolution / render scale (if you know)
+      placeholder: "90 Hz, VD Godlike"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log and settings files
+      description: |
+        Please drag in `bin\fc3vr.log` (from right after the problem, before starting the game again) and `bin\fc3vr.ini`.
+        GitHub won't take `.ini` files, so rename it to `fc3vr.ini.txt` first (or paste its text here).
+        The `bin` folder is usually `C:\Program Files (x86)\Steam\steamapps\common\Far Cry 3 Blood Dragon\bin`.
+      placeholder: Drag the two files here.
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshot or video (optional)
+      description: A short clip is the quickest way to show a VR problem.
