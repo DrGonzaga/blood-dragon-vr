@@ -2,6 +2,7 @@
 You need Far Cry 3 Blood Dragon from Steam, started once without the mod, and a PC VR setup with a 32-bit OpenXR runtime. On a Quest, use Virtual Desktop and set its OpenXR runtime to VDXR. The main menu of Setup shows whether a 32-bit OpenXR runtime was found.
 
 # NVIDIA CONTROL PANEL
+AMD cards: there is nothing to set. Threaded optimization is an NVIDIA setting only.
 1. Right-click the desktop and open NVIDIA Control Panel.
 2. Go to 3D Settings, then Manage 3D settings, then the Program Settings tab.
 3. Click Add and pick fc3_blooddragon_d3d11.exe. If it is not in the list, click Browse and open it from the game's bin folder.
@@ -33,4 +34,6 @@ Ubisoft's online servers for this game are closed, and a game update can undo th
 * Settings file: the game's bin\fc3vr.ini. Log: bin\fc3vr.log. Send the log with any problem report.
 * Settings in a mess: run Setup, choose Install and untick "Keep my current settings". Your old file is saved in the BloodDragonVR\backup folder.
 * Game won't start, or crashes straight away: open bin\fc3vr.ini and under [bd] set Engine=0. That switches the VR hooks off (flat screen in the headset), which shows whether the mod is the cause. Set it back to 1 afterwards.
+* Game shows flat on a big screen in the headset and the VR menu doesn't open: the mod didn't start. If there is no bin\fc3vr.log at all, the mod never loaded: run Setup, choose Install and tick "Load the mod as dinput8.dll". If there is a log, send it.
+* Game crashes at start-up even without the mod, on a CPU with many threads (for example 24 or more, such as an Intel Core i9 13900 or 14900): this is the game's own hardware check (systemdetection.dll), not the mod. The known fix is a Windows compatibility database for fc3_blooddragon_d3d11.exe made with Microsoft's Compatibility Administrator (32-bit), using the fixes ProcessorCountLie and ProcessorCountLieForHybridCPU with the value 8. That fix stops version.dll loading, so then install the mod as dinput8.dll (Setup ticks this for you when it finds the fix). Reinstalling the game or the VR runtime won't help with this crash.
 * To remove the mod, run Setup and choose Uninstall, or use Windows Settings, Apps.

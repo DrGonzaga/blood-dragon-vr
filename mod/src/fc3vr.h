@@ -471,6 +471,8 @@ int *InputXMode();            // lasers1: X on foot with a gun: 0 grenade (old),
 bool *InputMenuMinimap();  // wrist1m: [buttons] MenuMinimap (Menu = the game's map, left trigger / grip + Menu = pause)
 bool *InputLeftGripWheel();   // map1x: left grip opens the weapon wheel on foot
 bool *InputMoveByLeftHand();  // lasers1: the left stick walks where the left controller points
+bool *InputMenuNaturalBX();  // menuxb1: in the game's menus Touch B / X press the pad's B / X
+int *InputWalkDir();  // walkdir1: 0 gun aims, 1 left controller, 2 head ([buttons] WalkDirection)
 bool *HudMinimapShown();      // lasers1: minimap panel shown (X toggles it)
 void HudMinimapToggle();
 int *LaserThrowColour();      // lasers2: throw stub colour 0 red 1 green 2 blue 3 orange
@@ -532,6 +534,7 @@ bool StereoGpuProfiling();
 int *StereoWakeKeep();    // fast1/wake3: wake a sleeping worker only while fewer than this are awake (0 = off)
 bool *StereoFastCheck();  // fast1: quick stand-in for the game's IsBadWritePtr over locked buffers
 bool PatchImport(HMODULE mod, const char *dll, const char *name, void *hook, void **orig);  // res.cpp
+void CpuFixStart();  // cpufix1: the game's many-CPU start-up crash (systemdetection.dll)
 void StereoGpuProfile();  // 10 s GPU-by-pass profile into the log
 DWORD EngineGameThread();  // shots follow the right controller  // laser.cpp: aim beam from the right hand, before each eye's Present
 bool EngineAimBasis(float r[3], float u[3], float f[3], float camFwd[3]);  // level on-foot camera basis + its forward  // every 10 s: who reads the player's bones  // Numpad 1: name the code that reads the right stick's axis values  // Numpad 2: find the player's look direction in memory
@@ -791,6 +794,7 @@ float StockAdsHeight();     // adsmove1: controller height minus head height now
 void PromptsInstallBd(BYTE *bd);  // prompts3
 bool *PromptsHideOn();
 void PromptsChanged();
+bool *PromptsVrTextOn();  // vrtext1: [hud] VrPrompts, texts from bin\bdvr-prompts.txt
 bool *EngineRealCrouch();   // realcrouch1
 float *EngineRealCrouchDepth();
 // cybereye1 (cybereye.cpp): left hand at the head, grip held = the game's binoculars on a flat screen

@@ -22,3 +22,5 @@ vr.LeftHanded=0
 -gameplay.WeaponSweep
 -aim.NoGameHoldBreath
 -gfx.HideGameReticle
+# DrGonzaga turned on debug keys (F10 screenshots) on his PC 23 Nov; players start without them
+-debug.DebugKeys

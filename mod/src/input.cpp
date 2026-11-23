@@ -137,10 +137,17 @@ bool InputThrowAiming() { return g_xThrow || HolsterThrowing(); }
 // lasers1 (DrGonzaga 10 Nov): reaching behind the shoulder turned the walk, as the game walks
 // where its look (the right controller) points. Now the left stick walks where the left
 // controller points: the stick is turned by (left controller heading - game look heading).
-static bool g_moveLeft = true;  // [buttons] WalkWithLeftHand
-bool *InputMoveByLeftHand() { return &g_moveLeft; }
+// walkdir1 (DrGonzaga 23 Nov: "add head based movement ... to the VR menu"): the walk direction is a choice now,
+// [buttons] WalkDirection 0 = where the gun (right controller / game look) aims, the game's own way,
+// 1 = where the left controller points (lasers1, the old WalkWithLeftHand=1), 2 = where the head looks.
+static int g_walkDir = 1;
+static bool g_moveLeft = true;  // mirror of g_walkDir == 1 for old callers
+static bool g_menuXB = true;  // menuxb1: [buttons] MenuNaturalBX
+bool *InputMenuNaturalBX() { return &g_menuXB; }
+int *InputWalkDir() { return &g_walkDir; }
+bool *InputMoveByLeftHand() { g_moveLeft = g_walkDir == 1; return &g_moveLeft; }
 static void MoveByLeftHand(VrPad &p) {
-    if (!g_moveLeft || p.lx * p.lx + p.ly * p.ly < 0.0225f || MenuOpen() || !EngineOnFoot() || EngineInVehicle() ||
+    if (g_walkDir == 0 || p.lx * p.lx + p.ly * p.ly < 0.0225f || MenuOpen() || !EngineOnFoot() || EngineInVehicle() ||
         EngineTurret() || EngineCutscene())
         return;
     static float s_delta;
@@ -148,12 +155,18 @@ static void MoveByLeftHand(VrPad &p) {
     DWORD now = GetTickCount();
     EngineView v;
     float m[16], gy, gf[2], gp;
-    if (EngineLastView(&v) && HeadtrackHand(0, m) && EngineGameLook(&gy, gf, &gp)) {
-        const float *r = v.basis, *u = v.basis + 3, *f = v.basis + 6;
-        float d[2];
-        for (int i = 0; i < 2; ++i) d[i] = -(r[i] * m[2] + u[i] * m[6] - f[i] * m[10]);  // controller forward (as laser.cpp)
-        // Pointing well up or down: keep the last heading (no flip when the hand is near vertical).
-        if (d[0] * d[0] + d[1] * d[1] > 0.09f && gf[0] * gf[0] + gf[1] * gf[1] > 0.04f)
+    if (EngineLastView(&v) && EngineGameLook(&gy, gf, &gp)) {
+        float d[2] = {0, 0};
+        bool ok = false;
+        if (g_walkDir == 2) {  // the eye's forward (the drawn view follows the head)
+            d[0] = v.fwd[0], d[1] = v.fwd[1], ok = true;
+        } else if (HeadtrackHand(0, m)) {
+            const float *r = v.basis, *u = v.basis + 3, *f = v.basis + 6;
+            for (int i = 0; i < 2; ++i) d[i] = -(r[i] * m[2] + u[i] * m[6] - f[i] * m[10]);  // controller forward (as laser.cpp)
+            ok = true;
+        }
+        // Pointing / looking well up or down: keep the last heading (no flip near vertical).
+        if (ok && d[0] * d[0] + d[1] * d[1] > 0.09f && gf[0] * gf[0] + gf[1] * gf[1] > 0.04f)
             s_delta = atan2f(d[1], d[0]) - atan2f(gf[1], gf[0]), s_t = now;
     }
     if (!s_t || now - s_t > 1000) return;
@@ -175,7 +188,10 @@ void InputMapLoad() {
     }
     g_menuMap = GetPrivateProfileIntW(L"buttons", L"MenuMinimap", 1, path) != 0;
     g_lgripWheel = GetPrivateProfileIntW(L"buttons", L"LeftGripWheel", 0, path) != 0;
-    g_moveLeft = GetPrivateProfileIntW(L"buttons", L"WalkWithLeftHand", 1, path) != 0;
+    g_walkDir = GetPrivateProfileIntW(L"buttons", L"WalkDirection",
+                                      GetPrivateProfileIntW(L"buttons", L"WalkWithLeftHand", 1, path) ? 1 : 0, path);  // walkdir1
+    if (g_walkDir < 0 || g_walkDir > 2) g_walkDir = 1;
+    g_menuXB = GetPrivateProfileIntW(L"buttons", L"MenuNaturalBX", 1, path) != 0;  // menuxb1
     for (int i = 0; i < kInCount; ++i) {
         int v = GetPrivateProfileIntW(L"buttons", kInKeys[i], kInDefaults[i], path);
         g_map[i] = v >= 0 && v < kOutCount ? v : kInDefaults[i];
@@ -193,7 +209,10 @@ void InputMapSave() {
     WritePrivateProfileStringW(L"buttons", L"XButtonMode", buf, path);
     WritePrivateProfileStringW(L"buttons", L"MenuMinimap", g_menuMap ? L"1" : L"0", path);
     WritePrivateProfileStringW(L"buttons", L"LeftGripWheel", g_lgripWheel ? L"1" : L"0", path);
-    WritePrivateProfileStringW(L"buttons", L"WalkWithLeftHand", g_moveLeft ? L"1" : L"0", path);
+    WritePrivateProfileStringW(L"buttons", L"WalkWithLeftHand", g_walkDir == 1 ? L"1" : L"0", path);
+    swprintf(buf, 16, L"%d", g_walkDir);
+    WritePrivateProfileStringW(L"buttons", L"WalkDirection", buf, path);  // walkdir1
+    WritePrivateProfileStringW(L"buttons", L"MenuNaturalBX", g_menuXB ? L"1" : L"0", path);  // menuxb1
 }
 
 // dpad2 (DrGonzaga 2 Nov): two buttons pressed together (within 70 ms) are a
@@ -323,6 +342,26 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
         if (HolsterThrowHeld()) in[kInRGrip] = 1, map[kInRGrip] = g_map[kInRGrip] != kOutNone ? g_map[kInRGrip] : g_map[kInX];
         s_throwOut = HolsterThrowHeld() ? map[kInRGrip] : -1;  // heartadj1
         if (s_xGrenade && g_xMode == 0) map[kInX] = g_map[kInRGrip];  // lasers1: minimap mode never throws
+        // menuxb1 (DrGonzaga 23 Nov: "detecting when a menu is open, and swapping buttons? So B is actually B"): the
+        // shipped layout sends Touch B as the pad's X (reload / use) and Touch X as the pad's B (crouch / back), so
+        // in the game's menus and map the pictures said X for Touch B. While the game is paused (pause menu, map,
+        // shop) Touch B and X now press the pad's own B and X. Each press keeps what it started as.
+        static bool s_bMenu, s_xMenu, s_bW, s_xW, s_pWas;
+        bool paused = g_menuXB && GamePaused() && !MenuOpen();
+        if (paused != s_pWas) {
+            static int s_n;
+            if (s_n < 40) ++s_n, Log("input: game %s: Touch B / X %s", paused ? "menu open" : "menu closed",
+                                     paused ? "are the pad's B / X" : "as on the Buttons page");
+            s_pWas = paused;
+        }
+        bool bD = in[kInB] > 0.5f, xD2 = in[kInX] > 0.5f;
+        if (bD && !s_bW) s_bMenu = paused;
+        if (!bD) s_bMenu = false;
+        if (xD2 && !s_xW) s_xMenu = paused;
+        if (!xD2) s_xMenu = false;
+        s_bW = bD, s_xW = xD2;
+        if (s_bMenu) map[kInB] = kOutB;
+        if (s_xMenu) map[kInX] = kOutX;
     }
     for (int i = 0; i < kInCount; ++i) {
         int o = map[i];
