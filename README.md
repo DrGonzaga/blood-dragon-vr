@@ -156,6 +156,9 @@ the original exe if you 4 GB-patched it.
 ## Troubleshooting
 
 - **Settings:** `bin\fc3vr.ini`. **Log:** `bin\fc3vr.log`. Please attach the log to bug reports.
+- **Reporting a bug or giving feedback:** check the [Known issues](https://github.com/DrGonzaga/blood-dragon-vr/issues?q=is%3Aissue+label%3Aknown-issue)
+  first, then use [New issue](https://github.com/DrGonzaga/blood-dragon-vr/issues/new/choose). The bug form asks for your headset,
+  runtime and log, which saves a lot of back and forth.
 - **Game won't start or crashes at once:** in `fc3vr.ini`, under `[bd]`, set `Engine=0`. That turns
   the VR hooks off (flat picture in the headset) and shows whether the mod is the cause.
 - **Settings in a mess:** run Setup, Install, and untick **Keep my current settings** (your old file
