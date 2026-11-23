@@ -215,10 +215,12 @@ static bool modDllIn(const wstring& g) {
     for (auto n : kLoaders) if (isOurDll(binDir(g) + L"\\" + n)) return true;
     return false;
 }
-// A Windows compatibility fix aimed at the game's exe: a custom database (sdbinst) or a compatibility
-// mode / setting from the exe's Properties.
+// A Windows compatibility database (sdbinst) aimed at the game's exe, which is how the CPU-count fix is
+// applied. loader2 (23 Nov): compatibility modes / settings from the exe's Properties (AppCompatFlags\\Layers)
+// no longer count: they are common (DPI, full-screen optimisations), the mod's version.dll works with them,
+// and counting them switched DrGonzaga's install to dinput8.dll for no reason.
 static bool compatFixFound(const wstring& g) {
-    const wstring exe = lower(gameExe(g));
+    (void)g;
     for (REGSAM v : {KEY_WOW64_64KEY, KEY_WOW64_32KEY}) {
         HKEY k;
         if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, (wstring(L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\") + kExeName).c_str(),
@@ -226,20 +228,6 @@ static bool compatFixFound(const wstring& g) {
             RegCloseKey(k);
             return true;
         }
-    }
-    for (HKEY root : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
-        HKEY k;
-        if (RegOpenKeyExW(root, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers", 0,
-                          KEY_READ | KEY_WOW64_64KEY, &k) != ERROR_SUCCESS) continue;
-        wchar_t name[1024];
-        bool hit = false;
-        for (DWORD i = 0; !hit; i++) {
-            DWORD n = 1024;
-            if (RegEnumValueW(k, i, name, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
-            hit = lower(name) == exe;
-        }
-        RegCloseKey(k);
-        if (hit) return true;
     }
     return false;
 }
@@ -549,7 +537,16 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
     if (!resource(IDR_DEFAULTINI, &ini, &iniN)) { ui.end(false, L""); return L"This setup program is damaged (no settings inside)."; }
     writeFile(mod + L"\\fc3vr.default.ini", ini, iniN, nullptr);
     if (o.keepIni && fileExists(bin + L"\\fc3vr.ini")) {
-        ui.end(true, L"kept yours");
+        // autores1 (bd135): v0.69/v0.70 shipped a fixed 3632x3600 render size (blurry on sharper headsets).
+        // A kept file still holding exactly that size goes automatic (the headset's recommended size).
+        const wstring f = bin + L"\\fc3vr.ini";
+        bool oldSize = GetPrivateProfileIntW(L"render", L"Width", 0, f.c_str()) == 3632 &&
+                       GetPrivateProfileIntW(L"render", L"Height", 0, f.c_str()) == 3600;
+        if (oldSize) {
+            WritePrivateProfileStringW(L"render", L"Width", nullptr, f.c_str());
+            WritePrivateProfileStringW(L"render", L"Height", nullptr, f.c_str());
+        }
+        ui.end(true, oldSize ? L"kept yours (render size now automatic)" : L"kept yours");
     } else {
         if (!writeFile(bin + L"\\fc3vr.ini", ini, iniN, &err)) { ui.end(false, L""); return L"Could not write fc3vr.ini: " + err; }
         ui.end(true, L"defaults");

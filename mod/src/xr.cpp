@@ -502,6 +502,22 @@ static bool CreateInstance() {
     }
     return true;
 }
+// autores1 (bd135, DrGonzaga 23 Nov: a player found the fixed shipped size blurry): ask the runtime for its
+// recommended size at start-up, before the game makes its swapchain. The instance made here is the one the
+// session uses later; if the headset can't be reached it's thrown away so Init() tries again as before.
+static HANDLE g_earlyDone;  // set once the early query has finished (or never started)
+bool XrEarlyRecommendedSize(UINT *w, UINT *h) {
+    bool ok = LoadRuntime() && CreateInstance() && g_recW && g_recH;
+    if (!ok && g_instance) {
+        if (p_xrDestroyInstance) p_xrDestroyInstance(g_instance);
+        g_instance = XR_NULL_HANDLE, g_system = XR_NULL_SYSTEM_ID;
+    }
+    if (ok) *w = g_recW, *h = g_recH;
+    return ok;
+}
+void XrEarlyBegin() { if (!g_earlyDone) g_earlyDone = CreateEventW(nullptr, TRUE, FALSE, nullptr); }
+void XrEarlyEnd() { if (g_earlyDone) SetEvent(g_earlyDone); }
+
 bool XrImageSize(UINT *w, UINT *h) {  // flat1
     if (!g_width || !g_height) return false;
     *w = g_width, *h = g_height;
@@ -780,6 +796,7 @@ static void Init(IDXGISwapChain *sc) {
         Log("XR: couldn't get the game's device");
         return;
     }
+    if (g_earlyDone) WaitForSingleObject(g_earlyDone, 15000);  // autores1: never two instances at once
     bool ok = (g_instance || (LoadRuntime() && CreateInstance())) && CreateSessionFor(dev, desc);
     dev->Release();  // the session keeps its own reference
     if (ok) {

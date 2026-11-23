@@ -38,7 +38,8 @@ IN THE GAME
 
 KNOWN LIMITS
 * Made and tested on one PC (Quest 3, Virtual Desktop, NVIDIA). Other headsets should work but are
-  untested; set Render scale x1.00 on the VR menu's Graphics page for yours.
+  untested. The picture starts at your headset's recommended size; for a sharper one raise
+  Render scale on the VR menu's Graphics page (Save for next start, then restart).
 * The game's online features are switched off by the mod (Ubisoft's servers for this game are closed).
 
 CREDITS
