@@ -274,6 +274,11 @@ void SVr() {
         }
     }
     if (NeonButton("Recentre view", ImVec2(300, 54), kCyan)) HeadtrackRequestRecenter();
+    SectionHead("WALKING");  // walkdir1 (DrGonzaga 23 Nov)
+    {
+        static const char *const kW[] = {"Where the gun aims", "Where the left hand points", "Where the head looks"};
+        if (NeonPicker("Walk direction", InputWalkDir(), kW, 3)) Later(InputMapSave);
+    }
     SectionHead("CROUCH");
     if (NeonToggle("Crouch for real to crouch in game", EngineRealCrouch())) SaveF(L"gameplay", L"RealCrouch", *EngineRealCrouch() ? 1.f : 0.f);
     if (NeonToggle("Stick down to crouch / stand", InputCrouchOn())) SaveF(L"aim", L"StickCrouch", *InputCrouchOn() ? 1.f : 0.f);

@@ -51,6 +51,7 @@ static const char *const kProxyNames[kProxyCount] = {PROXY_EXPORTS(NAME_ONE)};
 PROXY_EXPORTS(STUB_ONE)
 
 static HMODULE g_real;
+static bool g_second;  // onestart1: another copy of the mod already started in this process
 
 static bool LoadRealDll(HMODULE self) {
     wchar_t selfPath[MAX_PATH];
@@ -73,9 +74,20 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(inst);
         if (!LoadRealDll(inst)) return FALSE;
+        // onestart1 (GitHub #1, 23 Nov): the mod can be in bin as both version.dll and dinput8.dll (players
+        // with Windows' CPU-count fix need dinput8.dll). Only the first copy to load starts the mod; a
+        // second copy just forwards its DLL's calls, so nothing is hooked twice.
+        wchar_t mx[64];
+        swprintf(mx, 64, L"Local\\bdvr-start-%lu", GetCurrentProcessId());
+        HANDLE m = CreateMutexW(nullptr, FALSE, mx);  // kept open for the life of the process
+        if (m && GetLastError() == ERROR_ALREADY_EXISTS) {
+            CloseHandle(m);
+            g_second = true;
+            return TRUE;
+        }
         Fc3vrStart(inst);
     } else if (reason == DLL_PROCESS_DETACH) {
-        LogFlush();  // quiet1: last buffered lines on a normal exit
+        if (!g_second) LogFlush();  // quiet1: last buffered lines on a normal exit
     }
     return TRUE;
 }

@@ -1450,6 +1450,8 @@ void HudPage() {
         }
         if (ImGui::Checkbox(g_bloodDragon ? "Hide chosen button prompts (zoom, hold breath)" : "Hide the arrow-switch prompts (and their strip)", PromptsHideOn()))  // prompts1
             SaveF(L"hud", L"HidePrompts", *PromptsHideOn() ? 1.f : 0.f), PromptsChanged();
+        if (g_bloodDragon && ImGui::Checkbox("Prompts use the VR texts (bin\\bdvr-prompts.txt)", PromptsVrTextOn()))  // vrtext1
+            SaveF(L"hud", L"VrPrompts", *PromptsVrTextOn() ? 1.f : 0.f), PromptsChanged();
         ImGui::TextDisabled("Other prompts (loot etc.) stay. More texts: fc3vr.ini [hud] HidePromptText=a;b");
     }
     if (More("More HUD options")) {
@@ -1495,8 +1497,14 @@ void ButtonsPage() {
         ImGui::TextDisabled("While the game is paused, Menu goes to the game as mapped below. Minimap on / off is on the HUD page.");
         if (ImGui::Checkbox("Left grip opens the weapon wheel on foot", InputLeftGripWheel())) Later(InputMapSave);  // map1x
         ImGui::TextDisabled("Off = left grip only holds the gun with both hands (weapons from the holsters).");
-        if (ImGui::Checkbox("Walk where my left controller points", InputMoveByLeftHand())) Later(InputMapSave);
-        ImGui::TextDisabled("Off = walk where the gun (right controller) aims, the game's own way.");
+        if (ImGui::Checkbox("In the game's menus and map, B is B and X is X (matches the pictures)", InputMenuNaturalBX())) Later(InputMapSave);  // menuxb1
+        ImGui::Text("Walk where:");  // walkdir1
+        ImGui::SameLine();
+        if (ImGui::RadioButton("the gun aims", InputWalkDir(), 0)) Later(InputMapSave);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("my left controller points", InputWalkDir(), 1)) Later(InputMapSave);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("my head looks", InputWalkDir(), 2)) Later(InputMapSave);
     }
     ImGui::Separator();
     for (int i = 0; i < InputMapCount(); ++i) {
@@ -2650,7 +2658,8 @@ void CtlThrow() {
 
 void CtlMove() {
     Head("Walking");
-    Ctl("Left stick", "walk, %s.", *InputMoveByLeftHand() ? "where your left hand points (look and reach anywhere without turning your walk)"
+    Ctl("Left stick", "walk, %s.", *InputWalkDir() == 1   ? "where your left hand points (look and reach anywhere without turning your walk)"
+                                   : *InputWalkDir() == 2 ? "where your head looks"
                                                           : "where the gun (right controller) aims");
     Ctl(KeyFor(cOutLS), "sprint.");
     Ctl(KeyFor(cOutA), "jump.");

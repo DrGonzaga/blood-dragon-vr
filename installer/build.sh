@@ -36,6 +36,13 @@ for f in "$PICS"/*; do
 done
 [ $i -gt 0 ] || { echo "no pictures in $PICS"; exit 1; }
 python3 make_pdf.py "$PICS" build/payload/controls.pdf
+# prompts1: the VR button names for the game's prompts (bin\bdvr-prompts.txt); DrGonzaga edits ../prompts/bdvr-prompts.txt
+# (the public repo keeps its copy in installer/prompts/)
+if [ -z "$PROMPTS" ]; then
+  if [ -f ../prompts/bdvr-prompts.txt ]; then PROMPTS=../prompts/bdvr-prompts.txt; else PROMPTS=prompts/bdvr-prompts.txt; fi
+fi
+cp "$PROMPTS" build/payload/bdvr-prompts.txt
+echo "prompts: $(md5sum < "$PROMPTS" | cut -c1-32) from $PROMPTS"
 echo "pictures: $i files from $PICS"
 [ -f build/icon.ico ] || python3 make_art.py build
 

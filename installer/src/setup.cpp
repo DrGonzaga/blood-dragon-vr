@@ -3,7 +3,7 @@
 //
 // Interactive:  BloodDragonVR-Setup.exe
 // Uninstall:    BloodDragonVR-Setup.exe /uninstall            (from Windows' Apps list)
-// Scripted:     BloodDragonVR-Setup.exe /install   "<game folder>" [/nolaa] [/nolock] [/noshortcut] [/resetini]
+// Scripted:     BloodDragonVR-Setup.exe /install   "<game folder>" [/nolaa] [/nolock] [/noshortcut] [/resetini] [/dinput8|/version]
 //               BloodDragonVR-Setup.exe /uninstall "<game folder>" [/removeini] [/keeplaa] [/keeplock]
 // Scripted runs print what they do and return 0 on success.
 
@@ -43,6 +43,7 @@ static const wchar_t* kUninstKey = L"Software\\Microsoft\\Windows\\CurrentVersio
 static const wchar_t* kShortcutName = L"Blood Dragon VR.lnk";
 static const wchar_t* kOldGuideName = L"Blood Dragon VR controls.html";  // v1 installers wrote this; removed now
 static const wchar_t* kPdfName = L"Blood Dragon VR controls.pdf";  // the controls pictures as one PDF
+static const wchar_t* kPromptsName = L"bdvr-prompts.txt";  // prompts1: bin\\bdvr-prompts.txt
 static const wchar_t* kPicFolder = L"bdvr-pictures";  // bin\bdvr-pictures: the menu's font and controls pictures
 // The Steam copy the mod was made for (FC3_d3d11.dll from the 2019 update). Other copies get a warning, not a block.
 static const DWORD kEngineDllSize = 28693672;
@@ -205,6 +206,45 @@ static DWORD engineDllSize(const wstring& g) {
     return a.nFileSizeLow;
 }
 static bool knownGameVersion(const wstring& g) { return engineDllSize(g) == kEngineDllSize; }
+static bool isOurDll(const wstring& p);
+// loader1 (GitHub #1, 23 Nov): the mod can load as version.dll (the default) or dinput8.dll. Players who
+// fix the game's many-thread CPU crash with a Windows compatibility database (ProcessorCountLie) need
+// dinput8.dll: that fix makes Windows load its own version.dll first, so ours is never used.
+static const wchar_t* kLoaders[2] = {L"version.dll", L"dinput8.dll"};
+static bool modDllIn(const wstring& g) {
+    for (auto n : kLoaders) if (isOurDll(binDir(g) + L"\\" + n)) return true;
+    return false;
+}
+// A Windows compatibility fix aimed at the game's exe: a custom database (sdbinst) or a compatibility
+// mode / setting from the exe's Properties.
+static bool compatFixFound(const wstring& g) {
+    const wstring exe = lower(gameExe(g));
+    for (REGSAM v : {KEY_WOW64_64KEY, KEY_WOW64_32KEY}) {
+        HKEY k;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, (wstring(L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\") + kExeName).c_str(),
+                          0, KEY_READ | v, &k) == ERROR_SUCCESS) {
+            RegCloseKey(k);
+            return true;
+        }
+    }
+    for (HKEY root : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
+        HKEY k;
+        if (RegOpenKeyExW(root, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers", 0,
+                          KEY_READ | KEY_WOW64_64KEY, &k) != ERROR_SUCCESS) continue;
+        wchar_t name[1024];
+        bool hit = false;
+        for (DWORD i = 0; !hit; i++) {
+            DWORD n = 1024;
+            if (RegEnumValueW(k, i, name, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+            hit = lower(name) == exe;
+        }
+        RegCloseKey(k);
+        if (hit) return true;
+    }
+    return false;
+}
+// The loader in use: what install.ini says, else whichever of ours is in bin, else the default.
+static int currentLoader(const wstring& g);
 
 // Accepts the game folder, its bin folder or the exe itself, typed with or without quotes.
 static wstring normaliseGameDir(wstring d) {
@@ -255,6 +295,19 @@ static vector<wstring> findGames() {
         cands.push_back(regString(HKEY_LOCAL_MACHINE,
             L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 233270", L"InstallLocation", v));
     }
+    // ubi1 (beta feedback 23 Nov): Ubisoft Connect's own list of installed games
+    for (REGSAM v : {KEY_WOW64_32KEY, KEY_WOW64_64KEY}) {
+        HKEY k;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Ubisoft\\Launcher\\Installs", 0, KEY_READ | v, &k) != ERROR_SUCCESS) continue;
+        wchar_t sub[64];
+        for (DWORD i = 0; i < 2000; i++) {
+            DWORD n = 64;
+            if (RegEnumKeyExW(k, i, sub, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+            wstring d = regString(HKEY_LOCAL_MACHINE, (L"SOFTWARE\\Ubisoft\\Launcher\\Installs\\" + wstring(sub)).c_str(), L"InstallDir", v);
+            if (!d.empty()) cands.push_back(d);
+        }
+        RegCloseKey(k);
+    }
     DWORD drives = GetLogicalDrives();
     for (int i = 2; i < 26; i++) {
         if (!(drives & (1u << i))) continue;
@@ -279,7 +332,7 @@ static vector<wstring> findGames() {
     // has no Steam manifest beside it), then a copy that already has the mod
     auto rank = [](const wstring& g) {
         int r = steamOwns(g) ? 0 : 2;
-        if (!fileExists(stateFile(g)) && !fileExists(binDir(g) + L"\\version.dll")) r++;
+        if (!fileExists(stateFile(g)) && !modDllIn(g)) r++;
         return r;
     };
     std::stable_sort(found.begin(), found.end(), [&](const wstring& x, const wstring& y) { return rank(x) < rank(y); });
@@ -424,6 +477,7 @@ struct Step {
 
 struct InstallOptions {
     bool laa = true, steamLock = true, shortcut = true, keepIni = true;
+    bool dinput8 = false;  // loader1: install as dinput8.dll instead of version.dll
 };
 struct UninstallOptions {
     bool keepIni = true, undoLaa = true, unlock = true, removeShortcut = true;
@@ -433,7 +487,6 @@ struct UninstallOptions {
 static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& ui) {
     wstring err;
     const wstring bin = binDir(g), mod = modDir(g), bak = mod + L"\\backup";
-    const bool reinstall = fileExists(stateFile(g));
 
     ui.begin(L"Checking the game is closed");
     if (gameRunning()) { ui.end(false, L"running"); return L"The game is running. Close it, then try again."; }
@@ -457,9 +510,12 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
         }
         note = L"game exe";
     }
-    if (!reinstall && fileExists(bin + L"\\version.dll") && !fileExists(bak + L"\\version.dll")) {
-        CopyFileW((bin + L"\\version.dll").c_str(), (bak + L"\\version.dll").c_str(), TRUE);
-        note += note.empty() ? L"version.dll" : L", version.dll";
+    for (auto n : kLoaders) {  // another mod's dll of either name is kept (ours never is)
+        wstring f = bin + L"\\" + n, b = bak + L"\\" + n;
+        if (fileExists(f) && !isOurDll(f) && !fileExists(b)) {
+            CopyFileW(f.c_str(), b.c_str(), TRUE);
+            note += (note.empty() ? L"" : L", ") + wstring(n);
+        }
     }
     if (fileExists(bin + L"\\fc3vr.ini")) {
         CopyFileW((bin + L"\\fc3vr.ini").c_str(), (bak + L"\\fc3vr-" + stamp() + L".ini").c_str(), TRUE);
@@ -467,14 +523,26 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
     }
     ui.end(true, note.empty() ? L"already done" : note);
 
-    ui.begin(L"Copying the VR mod (version.dll)");
+    const wstring use = kLoaders[o.dinput8 ? 1 : 0], other = kLoaders[o.dinput8 ? 0 : 1];
+    ui.begin(L"Copying the VR mod (" + use + L")");
     const void* dll; size_t dllN;
     if (!resource(IDR_MODDLL, &dll, &dllN)) { ui.end(false, L""); return L"This setup program is damaged (no mod inside)."; }
-    if (!writeFile(bin + L"\\version.dll", dll, dllN, &err)) {
+    if (!writeFile(bin + L"\\" + use, dll, dllN, &err)) {
         ui.end(false, L"");
-        return L"Could not write version.dll: " + err;
+        return L"Could not write " + use + L": " + err;
     }
-    ui.end(true, L"");
+    // one active copy only: our dll under the other name goes; another mod's file under that name stays
+    // (the mod starts once per game even if both load)
+    wstring otherNote;
+    if (isOurDll(bin + L"\\" + other)) {
+        DeleteFileW((bin + L"\\" + other).c_str());
+        // another mod's dll of that name, kept from before us, goes back
+        wstring prev = bak + L"\\" + other;
+        if (fileExists(prev) && !isOurDll(prev)) CopyFileW(prev.c_str(), (bin + L"\\" + other).c_str(), FALSE);
+        otherNote = L"old " + other + L" removed";
+    }
+    stateSet(g, L"Loader", use);
+    ui.end(true, otherNote);
 
     ui.begin(L"Writing the settings file (fc3vr.ini)");
     const void* ini; size_t iniN;
@@ -485,6 +553,24 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
     } else {
         if (!writeFile(bin + L"\\fc3vr.ini", ini, iniN, &err)) { ui.end(false, L""); return L"Could not write fc3vr.ini: " + err; }
         ui.end(true, L"defaults");
+    }
+
+    ui.begin(L"VR button names for the game's prompts (bdvr-prompts.txt)");
+    {
+        // prompts1: like fc3vr.ini, a player's own edited copy is kept when "Keep my current settings" is ticked
+        // (the new one goes beside it in BloodDragonVR); otherwise theirs is backed up first.
+        std::string pr = resourceString(IDR_PROMPTS), have;
+        const wstring dst = bin + L"\\" + kPromptsName;
+        writeFile(mod + L"\\bdvr-prompts.default.txt", pr.data(), pr.size(), nullptr);
+        if (readFile(dst, have) && have == pr) {
+            ui.end(true, L"up to date");
+        } else if (!have.empty() && o.keepIni) {
+            ui.end(true, L"kept yours (new one in BloodDragonVR\\bdvr-prompts.default.txt)");
+        } else {
+            if (!have.empty()) CopyFileW(dst.c_str(), (bak + L"\\bdvr-prompts-" + stamp() + L".txt").c_str(), TRUE);
+            if (!writeFile(dst, pr.data(), pr.size(), &err)) { ui.end(false, L""); return L"Could not write " + dst + L": " + err; }
+            ui.end(true, have.empty() ? L"" : L"yours backed up");
+        }
     }
 
     ui.begin(L"Copying the menu font and controls pictures");
@@ -591,6 +677,13 @@ static bool isOurDll(const wstring& p) {
     return d.find("fc3vr.ini") != std::string::npos || d.find("f\0c\0""3\0v\0r\0", 0, 10) != std::string::npos;
 }
 
+static int currentLoader(const wstring& g) {
+    wstring s = lower(stateGet(g, L"Loader"));
+    if (s == L"dinput8.dll") return 1;
+    if (s == L"version.dll") return 0;
+    return isOurDll(binDir(g) + L"\\dinput8.dll") && !isOurDll(binDir(g) + L"\\version.dll") ? 1 : 0;
+}
+
 static wstring doUninstall(const wstring& g, const UninstallOptions& o, const Step& ui) {
     const wstring bin = binDir(g), mod = modDir(g), bak = mod + L"\\backup";
     CreateDirectoryW(mod.c_str(), nullptr);
@@ -600,16 +693,20 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
     if (gameRunning()) { ui.end(false, L"running"); return L"The game is running. Close it, then try again."; }
     ui.end(true, L"");
 
-    ui.begin(L"Removing the VR mod (version.dll)");
-    wstring dll = bin + L"\\version.dll";
-    if (fileExists(dll) && !DeleteFileW(dll.c_str())) {
-        DWORD e = GetLastError();
-        ui.end(false, L"");
-        return L"Could not remove version.dll: " + errText(e);
+    ui.begin(L"Removing the VR mod (version.dll / dinput8.dll)");
+    bool restored = false;
+    for (auto n : kLoaders) {
+        wstring dll = bin + L"\\" + n;
+        // version.dll goes whatever it is (as before); dinput8.dll only when it is ours
+        if (fileExists(dll) && (wcscmp(n, L"version.dll") == 0 || isOurDll(dll)) && !DeleteFileW(dll.c_str())) {
+            DWORD e = GetLastError();
+            ui.end(false, L"");
+            return L"Could not remove " + wstring(n) + L": " + errText(e);
+        }
+        // put back another mod's dll of that name if there was one before us
+        wstring prev = bak + L"\\" + n;
+        if (!fileExists(dll) && fileExists(prev) && !isOurDll(prev) && CopyFileW(prev.c_str(), dll.c_str(), FALSE)) restored = true;
     }
-    // put back a version.dll from another mod if there was one before us
-    wstring prev = bak + L"\\version.dll";
-    bool restored = fileExists(prev) && !isOurDll(prev) && CopyFileW(prev.c_str(), dll.c_str(), FALSE);
     ui.end(true, restored ? L"previous dll restored" : L"");
 
     ui.begin(L"Settings file (fc3vr.ini)");
@@ -618,6 +715,11 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
     else if (o.keepIni) ui.end(true, L"kept");
     else if (MoveFileExW(ini.c_str(), (bak + L"\\fc3vr-" + stamp() + L".ini").c_str(), MOVEFILE_COPY_ALLOWED)) ui.end(true, L"moved to backup");
     else ui.end(false, L"left in place");
+    {  // prompts1: the prompts file goes with the settings file
+        wstring pf = bin + L"\\" + kPromptsName;
+        if (fileExists(pf) && !o.keepIni) MoveFileExW(pf.c_str(), (bak + L"\\bdvr-prompts-" + stamp() + L".txt").c_str(), MOVEFILE_COPY_ALLOWED);
+    }
+    DeleteFileW((mod + L"\\bdvr-prompts.default.txt").c_str());
     DeleteFileW((bin + L"\\fc3vr.log").c_str());
     DeleteFileW((bin + L"\\fc3vr.old.log").c_str());
     DeleteFileW((bin + L"\\fc3vr_bowstring.bin").c_str());  // the mod's learnt bow string, made again on first use
@@ -930,7 +1032,7 @@ static void statusLines(int y) {
     put(10, y, L"Game     ", A(LCYAN, BLUE));
     put(19, y, game, g_game.empty() ? A(LRED, BLUE) : A(WHITE, BLUE));
     wstring inst = g_game.empty() ? L"" : stateGet(g_game, L"Build");
-    if (inst.empty() && !g_game.empty() && fileExists(binDir(g_game) + L"\\version.dll")) inst = L"a VR mod is in the game folder";
+    if (inst.empty() && !g_game.empty() && (fileExists(binDir(g_game) + L"\\version.dll") || modDllIn(g_game))) inst = L"a VR mod is in the game folder";
     put(10, y + 1, L"Mod      ", A(LCYAN, BLUE));
     put(19, y + 1, inst.empty() ? L"not installed" : (inst.find(L' ') == wstring::npos ? L"installed, build " + inst : inst), A(WHITE, BLUE));
     wstring xr = openXrRuntime();
@@ -1267,7 +1369,9 @@ static void installFlow() {
         if (c != 0) return;
     }
     InstallOptions o;
-    bool hasIni = fileExists(binDir(g_game) + L"\\fc3vr.ini");
+    const bool compat = compatFixFound(g_game);
+    o.dinput8 = compat || currentLoader(g_game) == 1;
+    bool hasIni = fileExists(binDir(g_game) + L"\\fc3vr.ini") || fileExists(binDir(g_game) + L"\\" + kPromptsName);
     bool reinstall = fileExists(stateFile(g_game));
     vector<Check> c = {
         {L"4 GB memory patch for the game (recommended)",
@@ -1277,13 +1381,16 @@ static void installFlow() {
         {L"Desktop shortcut that starts the game in VR",
          L"Starts the game's own program directly, skipping the Steam and Ubisoft launch screens.", &o.shortcut},
     };
+    c.push_back({compat ? L"Load the mod as dinput8.dll (needed: Windows CPU fix found)" : L"Load the mod as dinput8.dll (only if VR didn't start)",
+                 L"For players who fixed the game's start-up crash on CPUs with many threads with a Windows compatibility fix: "
+                 L"that fix stops version.dll loading. See Setup tips.", &o.dinput8});
     if (hasIni)
-        c.push_back({L"Keep my current settings (fc3vr.ini)",
+        c.push_back({L"Keep my current settings (fc3vr.ini, bdvr-prompts.txt)",
                      L"Untick to start again from the default settings. Your current file is backed up either way.", &o.keepIni});
     if (!checklist(reinstall ? L"Update Blood Dragon VR" : L"Install Blood Dragon VR", c,
                    reinstall ? L"\x25BA  UPDATE NOW  \x25C4" : L"\x25BA  INSTALL NOW  \x25C4", tickBackground))
         return;
-    wstring err = runSteps(L"Installing", 10, [&](const Step& ui) { return doInstall(g_game, o, ui); });
+    wstring err = runSteps(L"Installing", 11, [&](const Step& ui) { return doInstall(g_game, o, ui); });
     auto done = [] { frame(L"Enter = Continue"); };
     if (!err.empty()) {
         dialog(L"Install stopped", {err, L"Nothing else was changed after this point. You can run Setup again."}, {L"OK"}, kErr, done);
@@ -1292,7 +1399,7 @@ static void installFlow() {
     int c2 = dialog(L"Install complete", {
         L"Blood Dragon VR " + wstring(kBuild) + L" is installed.",
         L"",
-        L"1. Set Threaded optimization to Off in NVIDIA Control Panel (see Setup tips).",
+        L"1. NVIDIA cards: set Threaded optimization to Off in NVIDIA Control Panel (see Setup tips). AMD: nothing to set.",
         L"2. Connect the headset to the PC in Virtual Desktop.",
         L"3. Start the game from the Blood Dragon VR shortcut on your desktop."},
         {L"Controls guide", L"Setup tips", L"Main menu"}, kDlg, done);
@@ -1302,7 +1409,7 @@ static void installFlow() {
 
 static void uninstallFlow(bool fromApps) {
     if (!fromApps && !chooseGame()) return;
-    if (!fileExists(stateFile(g_game)) && !fileExists(binDir(g_game) + L"\\version.dll")) {
+    if (!fileExists(stateFile(g_game)) && !fileExists(binDir(g_game) + L"\\version.dll") && !modDllIn(g_game)) {
         dialog(L"Nothing to remove", {L"Blood Dragon VR is not installed in:", shorten(g_game, 54)}, {L"OK"}, kDlg, mainBackground);
         return;
     }
@@ -1310,7 +1417,7 @@ static void uninstallFlow(bool fromApps) {
     o.undoLaa = stateGet(g_game, L"Laa") == L"1";
     o.unlock = !stateGet(g_game, L"SteamLock").empty();
     vector<Check> c = {
-        {L"Keep my settings file (fc3vr.ini) for next time",
+        {L"Keep my settings (fc3vr.ini, bdvr-prompts.txt) for next time",
          L"Untick to move it to the BloodDragonVR\\backup folder.", &o.keepIni},
         {L"Undo the 4 GB memory patch",
          L"Ticked if Setup applied it. Leaving it on does no harm to the normal game.", &o.undoLaa},
@@ -1389,6 +1496,7 @@ static int scripted(bool install, const wstring& dir, const vector<wstring>& fla
         o.steamLock = !has(L"/nolock");
         o.shortcut = !has(L"/noshortcut");
         o.keepIni = !has(L"/resetini");
+        o.dinput8 = has(L"/dinput8") || (!has(L"/version") && (compatFixFound(g) || currentLoader(g) == 1));
         err = doInstall(g, o, ui);
     } else {
         UninstallOptions o;

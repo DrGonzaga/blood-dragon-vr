@@ -676,6 +676,7 @@ void Fc3vrStart(HMODULE self) {
         if (!g_shareState) Log("overlays: each saves the game's drawing state itself ([debug] ShareState=0)");
         if (!g_safePtr) Log("memory checks: the old Windows calls ([debug] SafePtr=0)");
     }
+    if (g_bloodDragon) CpuFixStart();  // cpufix1 (GitHub #1)
     AddVectoredExceptionHandler(0, CrashLogger);
     ResStart();
     PrewarmStart();
