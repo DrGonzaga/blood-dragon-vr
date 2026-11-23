@@ -12,21 +12,21 @@ exactly this way.
 ## 2. The mod (version.dll)
 
     cd mod
-    make NAME=bd135-autores -j8 CXX=i686-w64-mingw32-g++-posix
+    make NAME=bd136-holstervr -j8 CXX=i686-w64-mingw32-g++-posix
 
 Output: `mod/build/fc3vr.dll`. Rename it to `version.dll` and put it in the game's `bin` folder.
 `NAME` is only the build name written to the log's first line.
 
 Checking against the released file: building this source gives a DLL that is byte-for-byte the same
-as the released `version.dll` (v0.71 BETA, build bd135, 4,103,680 bytes) except the link timestamp in
+as the released `version.dll` (v0.71 BETA, build bd136, 4,105,216 bytes) except the link timestamp in
 the PE headers (the COFF TimeDateStamp, the optional-header CheckSum field and the export directory's
 TimeDateStamp), which change on every link.
 
 ## 3. The installer (BloodDragonVR-Setup.exe)
 
     cd installer
-    sh build.sh v0.71-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.71 BETA (bd135)"
-    sh make_release.sh v0.71-BETA bd135
+    sh build.sh v0.71-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.71 BETA (bd136)"
+    sh make_release.sh v0.71-BETA bd136
 
 Output: `installer/out/BloodDragonVR-Setup-v0.71-BETA.exe` and the release zip
 `installer/release/BloodDragonVR-v0.71-BETA.zip`.

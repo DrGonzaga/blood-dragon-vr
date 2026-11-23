@@ -288,6 +288,22 @@ void SVr() {
     SectionHead("CROUCH");
     if (NeonToggle("Crouch for real to crouch in game", EngineRealCrouch())) SaveF(L"gameplay", L"RealCrouch", *EngineRealCrouch() ? 1.f : 0.f);
     if (NeonToggle("Stick down to crouch / stand", InputCrouchOn())) SaveF(L"aim", L"StickCrouch", *InputCrouchOn() ? 1.f : 0.f);
+    SectionHead("HOLSTERS");  // holsvr1 (DrGonzaga 23 Nov): holster height and width in the VR menu
+    {
+        bool hs = false;
+        auto cm = [&](const char *label, int i, float lo, float hi) {
+            float v = *HolsterValue(i) * 100, was = v;
+            if (NeonSlider(label, &v, lo, hi, "%.0f cm")) hs = true;
+            if (v != was) *HolsterValue(i) = roundf(v) / 100;  // untouched values keep their exact ini number
+        };
+        cm("Hip holsters: below your eyes", 0, 30, 110);
+        cm("Hip holsters: out to the side", 1, 5, 50);
+        cm("Shoulder holsters: reach down to", 5, 10, 90);
+        cm("Chest throwables: below your eyes", 6, 15, 70);
+        SNote("Smaller numbers below your eyes = higher holsters. Hip width is measured from the middle of your body. "
+              "The spheres move as you slide.");
+        if (hs) Later(HolsterSave);
+    }
     SectionHead("DAMAGE");  // dmgbd1 (DrGonzaga 22 Nov): the damage slider, now working in Blood Dragon
     if (NeonSlider("Damage I take", &g_damageTaken, 0.5f, 4.0f, "%.2fx"))
         g_damageTaken = roundf(g_damageTaken * 20) / 20, SaveF(L"gameplay", L"DamageTaken", g_damageTaken);
