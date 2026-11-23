@@ -717,6 +717,11 @@ bool GfxBloomOn();
 void GfxSetBloom(bool on);
 void ResGetSize(UINT *w, UINT *h);
 void ResSetSize(UINT w, UINT h, bool now);
+bool ResAutoSize();      // autores1: true when the size came from the headset (no Width/Height in fc3vr.ini)
+void ResUseAutoSize();   // autores1: removes Width/Height from fc3vr.ini, so the next start asks the headset
+bool XrEarlyRecommendedSize(UINT *w, UINT *h);  // autores1: start-up query (makes the OpenXR instance)
+void XrEarlyBegin();
+void XrEarlyEnd();
 // smaa1: SMAA 1x on each eye's image (smaa.cpp); 0 off, 1 low .. 4 ultra
 extern int g_smaa;
 struct ID3D11Texture2D;

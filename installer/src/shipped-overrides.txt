@@ -24,3 +24,6 @@ vr.LeftHanded=0
 -gfx.HideGameReticle
 # DrGonzaga turned on debug keys (F10 screenshots) on his PC 23 Nov; players start without them
 -debug.DebugKeys
+# autores1 (bd135, DrGonzaga 23 Nov): no fixed render size; the mod uses the headset's recommended size x1.0
+-render.Width
+-render.Height

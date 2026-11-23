@@ -205,10 +205,16 @@ void SGraphics() {
             snprintf(fmt, sizeof fmt, "x%%.2f  (%u x %u)", ww, wh);
             NeonSlider("Render scale", &want, 0.5f, 2.0f, fmt);
             want = roundf(want * 20) / 20;
-            SNote("Now %u x %u per eye. x1.00 = the headset's recommended %u x %u. Higher is sharper and costs GPU time.", cw, ch, rw, rh);
+            SNote("Now %u x %u per eye%s. x1.00 = the headset's recommended %u x %u. Higher is sharper and costs GPU time.",
+                  cw, ch, ResAutoSize() ? " (automatic, from the headset)" : "", rw, rh);
             if (ww != cw || wh != ch) {  // bd123: "Apply now" taken off (DrGonzaga: it doesn't work)
                 if (NeonButton("Save for next start", ImVec2(330, 56), kCyan)) ResSetSize(ww, wh, false);
             }
+            // autores1: back to automatic (the headset's recommended size at every start)
+            static bool s_autoAsked;
+            if (!ResAutoSize() && !s_autoAsked && NeonButton("Automatic size from the headset", ImVec2(460, 56), kCyan))
+                ResUseAutoSize(), s_autoAsked = true;
+            if (s_autoAsked) SNote("Automatic from the next start.");
         } else
             SNote("Waiting for the headset's recommended size.");
     }

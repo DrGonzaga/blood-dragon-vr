@@ -11,6 +11,9 @@
 //   [render]
 //   Width=2880
 //   Height=2808      (0 for either leaves the size to the game)
+//   No Width/Height at all (autores1, bd135): the headset's recommended size x AutoScale (default 1.0),
+//   asked from the OpenXR runtime at start-up; 2880x2808 if the headset can't be reached.
+//   AutoScale=1.0
 #include <windows.h>
 #include <d3d11.h>
 #include <stdio.h>
@@ -19,6 +22,8 @@
 
 static UINT g_width = 2880, g_height = 2808;
 static volatile bool g_off;  // gave up: the game kept rebuilding its swapchain
+static bool g_auto;            // autores1: size to come from the headset
+static HANDLE g_autoReady;     // autores1: set when the headset answered (or gave up)
 
 typedef HRESULT(STDMETHODCALLTYPE *CreateSwapChainFn)(IDXGIFactory *, IUnknown *, DXGI_SWAP_CHAIN_DESC *,
                                                       IDXGISwapChain **);
@@ -44,8 +49,33 @@ void IniPath(wchar_t *path) {
 static void ReadIni() {
     wchar_t path[MAX_PATH];
     IniPath(path);
-    g_width = GetPrivateProfileIntW(L"render", L"Width", g_width, path);
-    g_height = GetPrivateProfileIntW(L"render", L"Height", g_height, path);
+    int w = (int)GetPrivateProfileIntW(L"render", L"Width", -1, path);
+    int h = (int)GetPrivateProfileIntW(L"render", L"Height", -1, path);
+    if (w < 0 || h < 0) {
+        g_auto = true;  // autores1: no saved size, ask the headset
+        return;
+    }
+    g_width = (UINT)w, g_height = (UINT)h;
+}
+
+// autores1: the headset's recommended size, before the game asks its window's size.
+static DWORD WINAPI AutoSize(LPVOID) {
+    wchar_t path[MAX_PATH], buf[32];
+    IniPath(path);
+    GetPrivateProfileStringW(L"render", L"AutoScale", L"1.0", buf, 32, path);
+    float scale = (float)_wtof(buf);
+    if (scale < 0.5f || scale > 2.0f) scale = 1.0f;
+    UINT rw = 0, rh = 0;
+    DWORD t0 = GetTickCount();
+    if (XrEarlyRecommendedSize(&rw, &rh)) {
+        g_width = (UINT)(rw * scale + 8) / 16 * 16, g_height = (UINT)(rh * scale + 8) / 16 * 16;
+        Log("res: render size %ux%u from the headset (recommended %ux%u x %.2f, %lu ms)", g_width, g_height, rw, rh,
+            scale, GetTickCount() - t0);
+    } else
+        Log("res: headset's recommended size not available at start; using %ux%u", g_width, g_height);
+    XrEarlyEnd();
+    SetEvent(g_autoReady);
+    return 0;
 }
 
 // Only the game's own window (class "Nomad"), never a probe device's.
@@ -77,6 +107,7 @@ static GetClientRectFn g_origGetClientRect;
 static BOOL WINAPI HookGetClientRect(HWND w, LPRECT rc) {
     BOOL ok = g_origGetClientRect(w, rc);
     if (ok && rc && !g_off && IsGameWindow(w) && !IsIconic(w)) {
+        if (g_autoReady) WaitForSingleObject(g_autoReady, 10000);  // autores1: once, then it stays set
         rc->left = rc->top = 0;
         rc->right = g_width;
         rc->bottom = g_height;
@@ -148,11 +179,16 @@ static DWORD WINAPI WaitForDxgi(LPVOID) {
 
 void ResStart() {
     ReadIni();
-    if (!g_width || !g_height) {
+    if (g_auto) {
+        g_autoReady = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        XrEarlyBegin();
+        CloseHandle(CreateThread(nullptr, 0, AutoSize, nullptr, 0, nullptr));
+        Log("res: no render size in fc3vr.ini; asking the headset");
+    } else if (!g_width || !g_height) {
         Log("res: render size left to the game (fc3vr.ini)");
         return;
     }
-    Log("res: render size %ux%u (fc3vr.ini)", g_width, g_height);
+    if (!g_auto) Log("res: render size %ux%u (fc3vr.ini)", g_width, g_height);
     CloseHandle(CreateThread(nullptr, 0, WaitForGame, nullptr, 0, nullptr));
     CloseHandle(CreateThread(nullptr, 0, WaitForDxgi, nullptr, 0, nullptr));
 }
@@ -161,6 +197,14 @@ void ResStart() {
 // also changes what the game is told, and it rebuilds its swapchain (and we
 // the headset session) on its next frame.
 void ResGetSize(UINT *w, UINT *h) { *w = g_width, *h = g_height; }
+bool ResAutoSize() { return g_auto; }
+void ResUseAutoSize() {
+    wchar_t path[MAX_PATH];
+    IniPath(path);
+    WritePrivateProfileStringW(L"render", L"Width", nullptr, path);
+    WritePrivateProfileStringW(L"render", L"Height", nullptr, path);
+    Log("res: saved size removed; the next start uses the headset's recommended size");
+}
 void ResSetSize(UINT w, UINT h, bool now) {
     wchar_t path[MAX_PATH], buf[16];
     IniPath(path);
