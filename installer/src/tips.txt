@@ -30,6 +30,9 @@ Ubisoft's online servers for this game are closed, and a game update can undo th
 * Graphics page, Render scale: x1.00 is your headset's recommended size. The default suits a Quest 3. On another headset, set x1.00 and press Save for next start, then restart the game.
 * VR page: smooth or snap turn, comfort vignette, world scale.
 
+# OPENXR TOOLS AND API LAYERS (ADVANCED)
+The mod normally talks to your OpenXR runtime (VDXR, SteamVR...) directly, which skips OpenXR API layers such as OpenXR Toolkit. To use API layers, open bin\fc3vr.ini and under [vr] set OpenXrLoader=1, then restart the game. The mod then starts OpenXR through the Khronos loader (bin\openxr_loader.dll, installed by Setup), which finds your 32-bit API layers, including ones named in XR_ENABLE_API_LAYERS. Your runtime stays the same. Only 32-bit layers work (the game is 32-bit). If anything goes wrong, set it back to 0. The log (bin\fc3vr.log) says "XR: using the Khronos OpenXR loader" when it is on.
+
 # IF SOMETHING GOES WRONG
 * Settings file: the game's bin\fc3vr.ini. Log: bin\fc3vr.log. Send the log with any problem report.
 * Settings in a mess: run Setup, choose Install and untick "Keep my current settings". Your old file is saved in the BloodDragonVR\backup folder.

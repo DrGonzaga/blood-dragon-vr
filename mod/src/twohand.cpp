@@ -260,16 +260,24 @@ static void QuatToMat(const double q[4], float m[16]) {
 }
 
 // headtrack.cpp HeadtrackHand(1), after BowApply / TwoHandApply.
+// bowsteady1 (DrGonzaga 24 Nov: "add bow smoothing when holding left trigger"): with the bow in hand, the left trigger
+// held smooths the aim more ([bow] SteadySmoothing, 0..1 like the two-handed smoothing; 0 = off).
+static float g_bowSteady = 0.8f;
+float *BowSteadySmoothing() { return &g_bowSteady; }
 void TwoHandSmooth(float m[16]) {
     static SRWLOCK s_lock = SRWLOCK_INIT;
     static double s_q[4], s_out[4];
     static LARGE_INTEGER s_t;
     static bool s_have, s_was;
     static DWORD s_edge;  // when both-grips holding last started or ended
-    bool both = TwoHandHeld();
-    if (!both && BowActive()) {
+    bool both = TwoHandHeld(), bowLt = false;
+    if (BowActive()) {
         VrPad p;
-        both = XrGetPad(&p) && p.rgrip > 0.5f;
+        if (XrGetPad(&p)) {
+            if (!both) both = p.rgrip > 0.5f;
+            bowLt = p.lt > 0.5f && g_bowSteady > 0.005f;  // bowsteady1
+            if (bowLt) both = true;
+        }
     }
     AcquireSRWLockExclusive(&s_lock);
     const char *n = GunAttachName();
@@ -279,6 +287,15 @@ void TwoHandSmooth(float m[16]) {
         else g_pistolGun = 0, g_pistolOwn = -1;  // steady1: no gun in hand
     }
     float k = g_smGunVal >= 0 ? g_smGunVal : g_smooth;
+    static bool s_bowLtWas;
+    static DWORD s_ltEdge;
+    if (bowLt != s_bowLtWas) s_bowLtWas = bowLt, s_ltEdge = GetTickCount();
+    if (bowLt || GetTickCount() - s_ltEdge < 150) {  // bowsteady1: eases between the two strengths over 150 ms
+        float r = (GetTickCount() - s_ltEdge) / 150.f;
+        r = r > 1 ? 1 : r;
+        float hi = g_bowSteady > k ? g_bowSteady : k;
+        k = bowLt ? k + (hi - k) * r : hi + (k - hi) * r;
+    }
     DWORD now = GetTickCount();
     if (both != s_was) s_was = both, s_edge = now;
     float ramp = (now - s_edge) / 150.f;

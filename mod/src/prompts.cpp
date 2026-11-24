@@ -136,6 +136,8 @@ const wchar_t *Rewrite(int id, const wchar_t *t, int n) {
         int tl = src[i] == L'[' ? TokenAt(src, sn, i) : 0;
         if (tl) {
             const wchar_t *lab = nullptr;
+            static wchar_t s_live[64];  // ctl3: the live binding when it differs from the shipped layout (one game thread)
+            if (InputTokenLabel(src + i + 1, tl, s_live, 64)) lab = s_live;
             for (int k = 0; k < tb->nlab && !lab; ++k)
                 if (EqN(src + i + 1, tl, tb->act[k])) lab = tb->lab[k];
             if (lab) {
@@ -427,6 +429,7 @@ void LoadList(const wchar_t *def) {
     }
 }
 }  // namespace
+void PromptsRefresh() { InterlockedIncrement(&g_epoch); }  // ctl3: bindings changed
 
 void PromptsInstallBd(BYTE *bd) {
     // vrtext2: the lookup itself (push ebp; mov ebp,esp; sub esp,0x208; mov eax,[ebp+0x14]), and the

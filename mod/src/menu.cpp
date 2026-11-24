@@ -218,6 +218,7 @@ void LoadSettings() {
     *TwoHandFar() = LoadF(L"twohand", L"Furthest", 0.80f);
     *TwoHandStockAim() = LoadF(L"twohand", L"StockAim", 1) != 0;  // stockaim1
     *TwoHandSmoothing() = LoadF(L"twohand", L"Smoothing", 0.3f);  // twosmooth1
+    *BowSteadySmoothing() = LoadF(L"bow", L"SteadySmoothing", 0.8f);  // bowsteady1
     *TwoHandCupReach() = LoadF(L"twohand", L"HandsTogether", 0.15f);  // pistolgrip1
     *PistolSteadyOn() = LoadF(L"twohand", L"PistolSteady", 1) != 0;  // steady1
     *PistolSteadyBuzz() = LoadF(L"twohand", L"SteadyBuzz", 1) != 0;  // steadybuzz1
@@ -288,6 +289,7 @@ void LoadSettings() {
     g_cutZoom = LoadF(L"vr", L"CutsceneScreenZoom", 1.0f);
     g_seqBySeq = LoadF(L"vr", L"CutsceneBySequence", 1) != 0;
     g_seqInter3D = LoadF(L"vr", L"CutscenePromptsIn3D", 1) != 0;  // seq1
+    g_sceneScreen = LoadF(L"vr", L"CutsceneOwnEyesScreen", 1) != 0;  // scene2
     g_seqByMap = LoadF(L"vr", L"CutsceneByInputMode", 0) != 0;
     g_seqHold = LoadF(L"vr", L"CutscenePromptHold", 8.0f);
     g_turretSteady = LoadF(L"vr", L"TurretSteadyView", 1) != 0;  // turret1
@@ -318,6 +320,7 @@ void LoadSettings() {
     *EngineRoomStart() = LoadF(L"vr", L"RoomScaleStart", 0.30f);
     *EngineSnapTurn() = LoadF(L"vr", L"SnapTurn", 1) != 0;  // snap1
     *EngineSnapAngle() = LoadF(L"vr", L"SnapTurnAngle", 45);
+    *EngineTurnSpeed() = LoadF(L"vr", L"SmoothTurnSpeed", 149);  // turnspd1
     *HeadtrackHandSmoothing() = LoadF(L"aim", L"ControllerSmoothing", 0);
     *EngineScopeOn() = LoadF(L"aim", L"ScopeEye", 1) != 0;
     *EngineScopePip() = LoadF(L"aim", L"ScopeStereo", 0) != 0;  // pip1
@@ -812,6 +815,8 @@ void VrPage(const float *t) {
         ImGui::TextDisabled("Off = cutscenes in VR, turned by your head only. Open this menu in a cutscene to see the screen.");
     }
     // seq1 (DrGonzaga 11 Nov): scenes that ask for input stay in VR
+    if (ImGui::Checkbox("Scenes you mark go on the 2D screen", &g_sceneScreen))
+        SaveF(L"vr", L"CutsceneOwnEyesScreen", g_sceneScreen ? 1.f : 0.f);
     if (ImGui::Checkbox("Cutscenes with button prompts stay in 3D", &g_seqInter3D))
         SaveF(L"vr", L"CutscenePromptsIn3D", g_seqInter3D ? 1.f : 0.f);
     if (g_seqInter3D) {
@@ -834,6 +839,10 @@ void VrPage(const float *t) {
     ImGui::SameLine();
     if (ImGui::Button(EngineCutscene() ? "This is NOT a cutscene (back to VR)" : "That was NOT a cutscene")) EngineCutsceneMark(false);
     ImGui::TextDisabled("Press just after it happens. Marked so far: %ld was, %ld wasn't", EngineCutsceneMarks(true), EngineCutsceneMarks(false));
+    // scenelist1: "That WAS" during a scene in VR puts that scene on the 2D screen (now and every time after); "NOT" takes it off.
+    ImGui::TextDisabled("Press WAS while a scene plays in VR: it goes on the 2D screen now and every time after. %d scene(s) on your list.", EngineScenesListed());
+    if (*EngineSceneMsg()) ImGui::TextDisabled("%s", EngineSceneMsg());
+    if (EngineScenesListed() && ImGui::Button("Forget all my scenes")) EngineScenesForget();
     ImGui::Separator();
     ImGui::Text("Frame time (ms)   CPU left %.1f  right %.1f   GPU left %.1f  right %.1f", t[0], t[1], t[3], t[4]);
     ImGui::Text("Headset wait %.1f ms   (90 Hz budget 11.1 ms)", t[2]);
@@ -1235,6 +1244,24 @@ void BeamScopePage() {
                 const float reachTo = (*ScopeRifleValue(5) + *ScopeRifleValue(6) + *ScopeRifleValue(8)) * 100;
                 ImGui::TextDisabled("Now: eye %.1f cm behind the glass (on up to %.1f), %.1f cm off the middle (on under %.1f), %.0f deg off the barrel (on under %.0f): %s",
                                     now[0], reachTo, now[1], *ScopeRifleValue(9) * 100, now[2], *ScopeRifleValue(10), at ? "ON" : "off");
+            }
+            {   // chargeglass1 (DrGonzaga 24 Nov: "an option in the debug for me to adjust the time ... 1-3 sec, nice wide slider")
+                ImGui::TextUnformatted("Kobracon before its reload kit upgrade: scope glass hidden after each shot (its bolt moves the rifle)");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::SliderFloat("##chargehide", ScopeChargeHide(), 1.0f, 3.0f, "hidden for %.2f s after each shot"))
+                    *ScopeChargeHide() = roundf(*ScopeChargeHide() * 20) / 20;
+                if (ImGui::IsItemDeactivatedAfterEdit()) SaveF(L"scope", L"ChargeHideSeconds", *ScopeChargeHide());
+                ImGui::SetNextItemWidth(-1);  // boltreload1
+                if (ImGui::SliderFloat("##boltreload", ScopeBoltReloadHide(), 1.0f, 5.0f, "hidden for %.2f s after the reload button"))
+                    *ScopeBoltReloadHide() = roundf(*ScopeBoltReloadHide() * 20) / 20;
+                if (ImGui::IsItemDeactivatedAfterEdit()) SaveF(L"scope", L"BoltReloadHideSeconds", *ScopeBoltReloadHide());
+                if (ImGui::Checkbox("Glass follows the rifle's own bolt / reload animation (the timers are used only when it can't)", GunAttachGlueOn()))  // glue1
+                    SaveF(L"scope", L"ChargeGlue", *GunAttachGlueOn() ? 1.0f : 0.0f);
+                {
+                    static const char *kSt[4] = {"not the single-shot rifle", "no bone table found: timers used", "learning the rifle at rest (hold it, no shot, 4 s): timers used meanwhile", "following the rifle's animation"};
+                    ImGui::TextDisabled("Glass follow: %s", kSt[GunAttachGlueState() & 3]);
+                }
+                ImGui::TextDisabled("This rifle now: %s", GunAttachSingleShot() ? "single shot (glass hides after shots and reloads)" : "not the single-shot rifle (or upgraded with the reload kit)");
             }
             ImGui::Checkbox("Show the eyepiece glass without aiming (to line it up; not saved)", ScopeRifleShowGlass());
             ss |= FineSlider("Eyepiece right", ScopeRifleValue(0), -0.15f, 0.15f, "%.3f m", 0.002f);
@@ -2954,6 +2981,14 @@ void Init() {
 }
 
 }  // namespace
+
+void Fc3vrImAssert(const char *expr, const char *file, int line) {  // imassert1
+    static volatile LONG s_n;
+    if (InterlockedIncrement(&s_n) <= 20) {
+        const char *b = strrchr(file, '/');
+        Log("menu: ImGui check failed: %s (%s line %d); carried on", expr, b ? b + 1 : file, line);
+    }
+}
 
 void MenuSaveLater(void (*fn)()) { Later(fn); }  // zoom1: other modules' saves, written off their thread
 

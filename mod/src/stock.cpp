@@ -76,7 +76,7 @@ static void CheckGun() {
 
 static float HandDistance(float *dy = nullptr) {
     float m[16], hand[3], head[3];
-    if (!HeadtrackHand(1, m, hand) || !EngineHeadPose(m, head)) return -1;
+    if (!HeadtrackHandUnturned(1, m, hand) || !EngineHeadPose(m, head)) return -1;  // mount1: the real controller
     float d[3] = {hand[0] - head[0], hand[1] - head[1], hand[2] - head[2]};
     if (dy) *dy = d[1];  // XR space, y up
     return sqrtf(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);

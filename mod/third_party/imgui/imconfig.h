@@ -18,6 +18,10 @@
 // If your macro uses multiple statements, make sure is enclosed in a 'do { .. } while (0)' block so it can be used as a single statement.
 //#define IM_ASSERT(_EXPR)  MyAssert(_EXPR)
 //#define IM_ASSERT(_EXPR)  ((void)(_EXPR))     // Disable asserts
+// imassert1 (fc3vr, 24 Nov 2026): a failed ImGui check is logged (fc3vr.log) and the game goes on, instead of a
+// hidden "Assertion failed" box that froze the game in the headset.
+void Fc3vrImAssert(const char *expr, const char *file, int line);
+#define IM_ASSERT(_EXPR) ((_EXPR) ? (void)0 : Fc3vrImAssert(#_EXPR, __FILE__, __LINE__))
 
 //---- Define attributes of all API symbols declarations, e.g. for DLL under Windows
 // Using Dear ImGui via a shared library is not recommended, because of function call overhead and because we don't guarantee backward nor forward ABI compatibility.

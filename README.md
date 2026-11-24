@@ -5,7 +5,7 @@ through OpenXR, motion-controlled guns, VR hands and arms, two-handed aiming, ri
 arrows, throwing, holsters on your body, the cyber-eye, slow motion, a synthwave VR settings menu and
 plenty more.
 
-**Version 0.71 BETA** (mod build bd136). Beta, like its author.
+**Version 0.72 BETA** (mod build bd163). Beta, like its author.
 
 Vibe coded with Claude by the submissive lab-rat DrGonzaga.
 
@@ -31,12 +31,12 @@ Vibe coded with Claude by the submissive lab-rat DrGonzaga.
 
 ## Install (download)
 
-Download `BloodDragonVR-v0.71-BETA.zip` from [Releases](https://github.com/DrGonzaga/blood-dragon-vr/releases) or Nexus Mods and unzip it.
+Download `BloodDragonVR-v0.72-BETA.zip` from [Releases](https://github.com/DrGonzaga/blood-dragon-vr/releases) or Nexus Mods and unzip it.
 
 **With Setup (easiest)**
 
 1. Close the game.
-2. Run `BloodDragonVR-Setup-v0.71-BETA.exe`. It is not code-signed, so Windows may say
+2. Run `BloodDragonVR-Setup-v0.72-BETA.exe`. It is not code-signed, so Windows may say
    "Windows protected your PC": click **More info**, then **Run anyway**, then **Yes** on the
    administrator prompt.
 3. Choose **Install**, check the game folder it found (it asks Steam), and press **INSTALL NOW**.
@@ -108,7 +108,7 @@ Open PowerShell as administrator and run `wsl --install -d Ubuntu`, restart if a
 Output: `mod/build/fc3vr.dll` (about 4 MB). `NAME` is just the name written on the first line of the
 mod's log, so you can tell builds apart. `make clean` starts again from scratch.
 
-To reproduce the released v0.71 BETA exactly, use `NAME=bd136-holstervr`: the result is byte-for-byte
+To reproduce the released v0.72 BETA exactly, use `NAME=bd163-tightoff`: the result is byte-for-byte
 identical to the released `version.dll` except the link timestamps in the PE headers.
 
 ### 5. Build the installer (optional)
@@ -121,8 +121,8 @@ identical to the released `version.dll` except the link timestamps in the PE hea
 Output: `installer/out/BloodDragonVR-Setup-my-build.exe` and the release zip
 `installer/release/BloodDragonVR-my-build.zip`. The release itself was built with:
 
-    sh build.sh v0.71-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.71 BETA (bd136)"
-    sh make_release.sh v0.71-BETA bd136
+    sh build.sh v0.72-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.72 BETA (bd163)"
+    sh make_release.sh v0.72-BETA bd163
 
 `build.sh` embeds the DLL, the default settings (`src/default-fc3vr.ini` with the forced values in
 `src/shipped-overrides.txt`, applied by `make_ini.py`), every file in `pictures/`, the VR prompt texts (`prompts/bdvr-prompts.txt`) and a PDF made from

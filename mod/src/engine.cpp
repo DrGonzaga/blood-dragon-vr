@@ -460,7 +460,9 @@ static volatile LONG g_rightX;        // right stick x as the pad gave it (input
 static volatile LONG g_rightY;        // snap1: right stick y as the pad gave it
 static bool g_snapOn = true;          // snap1: snap turn instead of smooth turn ([vr] SnapTurn)
 static float g_snapDeg = 45;          // snap1: degrees per snap ([vr] SnapTurnAngle)
+static float g_turnDegS = 149;        // turnspd1 (beta feedback 23 Nov): smooth turn speed, deg/s at full stick ([vr] SmoothTurnSpeed; was a fixed 2.6 rad/s)
 bool *EngineSnapTurn() { return &g_snapOn; }
+float *EngineTurnSpeed() { return &g_turnDegS; }
 float *EngineSnapAngle() { return &g_snapDeg; }
 static void SaveLookRate(const wchar_t *key, float v) {  // look3
     wchar_t path[MAX_PATH], buf[32];
@@ -608,6 +610,8 @@ static void CutNote(int kind) {
     CutEv &e = g_cutEv[g_cutEvN++ % 12];
     e.t = GetTickCount(), e.kind = (BYTE)kind;
 }
+static const char *SceneMark(bool was);  // scenelist1
+static char g_sceneMsg[96];
 static volatile LONG g_cutMarks[2];
 LONG EngineCutsceneMarks(bool was) { return g_cutMarks[was ? 1 : 0]; }
 void EngineCutsceneMark(bool was) {
@@ -627,6 +631,7 @@ void EngineCutsceneMark(bool was) {
         g_cutscene ? (g_flatNow ? "on the 2D screen" : "cutscene mode") : "normal VR", g_cutFlagNow ? "on" : "off",
         g_cutGameCamNow ? "the on-foot camera" : "another camera", EngineInputModeName(nb, sizeof nb), hist[0] ? hist : "nothing in the last 5 minutes");
     if (!was && g_cutscene) g_cutVeto = true, CutNote(7);
+    if (g_sceneScreen) snprintf(g_sceneMsg, sizeof g_sceneMsg, "Scene list: %s", SceneMark(was));  // scenelist1
 }
 
 // seq1 (DrGonzaga 11 Nov: "if it's a sequence that needs player input it's 3D; if
@@ -648,6 +653,7 @@ void EngineCutsceneMark(bool was) {
 // reads a frame; every change is logged with the pushed list so that modes the
 // game's data names (not in the code) show up as numbers to be named later.
 static DWORD kPlayersGlobal = 0x12829474, kPlayerWrapVt = 0x11f48574;  // bd7: Blood Dragon sets its own (SeqInstallBd)
+bool g_sceneScreen = true;  // scenelist1: [vr] CutsceneOwnEyesScreen: your marked scenes on the 2D screen
 bool g_seqInter3D = true;   // [vr] CutscenePromptsIn3D: a cutscene with button prompts is shown in VR, not on the screen
 bool g_seqByMap = false;    // [vr] CutsceneByInputMode (TEST): "cinematic" input mode alone (on-foot camera) also counts
 float g_seqHold = 8.0f;     // [vr] CutscenePromptHold: seconds a cutscene stays in VR after its last prompt
@@ -760,6 +766,109 @@ static bool SeqCutscenePlaying(int *playing) {
     return cut;
 }
 
+// scenelist1: DrGonzaga's own list of scenes for the 2D screen.
+struct SceneKey { DWORD mode; int flag; float p[3]; };  // flag 1 = only with the cinematic flag on, 2 = either
+static SceneKey g_scenes[64];
+static int g_nScenes;
+static bool g_scenesLoaded;
+static DWORD g_scMode;             // the input mode in force
+static bool g_scFlag;              // the cinematic flag (on-foot camera) on now
+static float g_scModeP[3], g_scFlagP[3];  // where the player stood when that mode / that flag began
+static bool g_scModeHave, g_scFlagHave, g_scListed;
+static const float kSceneNear = 5.0f;  // metres from where the marked scene began
+static bool PlayMode(DWORD m) { return m == 0xe35e00df || m == 0xe2e5f03d || m == 0xc5455f40 || !m; }  // modes he plays in
+static bool PlayerAt(float p[3]) {
+    BYTE *pl = GunAttachPlayer();
+    if (!pl || IsBadReadPtr(pl + 0x50, 12)) return false;
+    memcpy(p, pl + 0x50, 12);
+    return true;
+}
+static void ScenesLoad() {
+    g_scenesLoaded = true, g_nScenes = 0;
+    wchar_t path[MAX_PATH], key[16], buf[128];
+    IniPath(path);
+    int n = GetPrivateProfileIntW(L"scenes", L"Count", 0, path);
+    for (int i = 0; i < n && g_nScenes < 64; ++i) {
+        swprintf(key, 16, L"Scene%d", i + 1);
+        GetPrivateProfileStringW(L"scenes", key, L"", buf, 128, path);
+        SceneKey k;
+        unsigned long m = 0;
+        if (swscanf(buf, L"%lx %d %f %f %f", &m, &k.flag, &k.p[0], &k.p[1], &k.p[2]) == 5 && m) k.mode = (DWORD)m, g_scenes[g_nScenes++] = k;
+    }
+    Log("scenes: %d scene(s) of yours go on the 2D screen ([scenes] in fc3vr.ini)", g_nScenes);
+}
+static void ScenesSave() {
+    wchar_t path[MAX_PATH], key[16], buf[128];
+    IniPath(path);
+    WritePrivateProfileStringW(L"scenes", nullptr, nullptr, path);  // the old list off first
+    swprintf(buf, 128, L"%d", g_nScenes);
+    WritePrivateProfileStringW(L"scenes", L"Count", buf, path);
+    for (int i = 0; i < g_nScenes; ++i) {
+        const SceneKey &k = g_scenes[i];
+        swprintf(key, 16, L"Scene%d", i + 1);
+        swprintf(buf, 128, L"%08lx %d %.1f %.1f %.1f", (unsigned long)k.mode, k.flag, k.p[0], k.p[1], k.p[2]);
+        WritePrivateProfileStringW(L"scenes", key, buf, path);
+    }
+}
+static bool SceneNear(const float a[3], const float b[3]) {
+    float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+    return dx * dx + dy * dy + dz * dz < kSceneNear * kSceneNear;
+}
+static int SceneFind() {  // the listed scene playing now, or -1
+    for (int i = 0; i < g_nScenes; ++i) {
+        const SceneKey &k = g_scenes[i];
+        if (k.mode != g_scMode) continue;
+        if (k.flag == 2 ? g_scModeHave && SceneNear(k.p, g_scModeP) : g_scFlag && g_scFlagHave && SceneNear(k.p, g_scFlagP)) return i;
+    }
+    return -1;
+}
+// CutsceneTick: true = a scene of DrGonzaga's list is playing.
+static bool SceneTick(DWORD mode, bool flag, DWORD t) {
+    (void)t;
+    if (!g_scenesLoaded) ScenesLoad();
+    if (mode != g_scMode) g_scMode = mode, g_scModeHave = PlayerAt(g_scModeP);
+    if (flag != g_scFlag) {
+        g_scFlag = flag;
+        if (flag) g_scFlagHave = PlayerAt(g_scFlagP);
+    }
+    int i = g_sceneScreen ? SceneFind() : -1;
+    bool on = i >= 0;
+    if (on != g_scListed) {
+        g_scListed = on;
+        if (on) Log("scenes: your scene %d is playing (input mode %08lx): the 2D screen", i + 1, (unsigned long)mode);
+    }
+    return on;
+}
+int EngineScenesListed() { return g_nScenes; }
+void EngineScenesForget() { g_nScenes = 0, g_scenesLoaded = true, ScenesSave(), Log("scenes: list cleared"); }
+// "That WAS a cutscene" / "NOT": add the scene playing now to the list, or take it off.
+static const char *SceneMark(bool was) {
+    if (!g_scenesLoaded) ScenesLoad();
+    int i = SceneFind();
+    if (!was) {
+        if (i < 0) return "not on your list";
+        g_scenes[i] = g_scenes[--g_nScenes], ScenesSave();
+        Log("scenes: taken off your list (input mode %08lx)", (unsigned long)g_scMode);
+        return "taken off your list";
+    }
+    if (i >= 0) return "already on your list";
+    if (g_nScenes >= 64) return "list full (64)";
+    SceneKey k;
+    k.mode = g_scMode;
+    if (PlayMode(g_scMode)) {  // a mode he also plays in: only while the game's cinematic flag is on, from where that began
+        if (!g_scFlag || !g_scFlagHave) return "NOT added: nothing here tells it apart from normal play";
+        k.flag = 1, memcpy(k.p, g_scFlagP, 12);
+    } else {
+        if (!g_scModeHave) return "NOT added: player place unknown";
+        k.flag = 2, memcpy(k.p, g_scModeP, 12);
+    }
+    g_scenes[g_nScenes++] = k, ScenesSave();
+    Log("scenes: added scene %d: input mode %08lx%s, began at %.1f %.1f %.1f", g_nScenes, (unsigned long)k.mode,
+        k.flag == 1 ? " with the cinematic flag on" : "", k.p[0], k.p[1], k.p[2]);
+    return "added to your list: 2D from now on";
+}
+const char *EngineSceneMsg() { return g_sceneMsg; }
+
 static void CutsceneTick(DWORD src) {
     if (!g_cinePtr) return;
     static BYTE *s_ok;
@@ -868,7 +977,12 @@ static void CutsceneTick(DWORD src) {
     if (kind == 2) s_promptT = t ? t : 1;
     else if (s_promptT && t - s_promptT >= (DWORD)(g_seqHold * 1000.0f)) s_promptT = 0;
     bool seqCut = g_seqBySeq && s_seqCut && !(g_seqInter3D && s_promptT && !camCut);
-    bool rawCut = camCut || seqCut || (g_seqByMap && cineFoot);
+    // scenelist1 (DrGonzaga 24 Nov: "my preference would be to decide 'scene by scene', I'm worried if we set up new 'rules'
+    // we'll break other things"): bd147's two general rules are gone. A scene goes on the 2D screen only if DrGonzaga has
+    // marked it ("That WAS a cutscene"): its input mode (and the flag, in the modes he plays in) plus where he stood when
+    // it began are kept in fc3vr.ini [scenes]; the same scene next time is on the screen from its first moment.
+    const bool ownEyes = SceneTick(h ? h : h2, flag && !camCut, t);
+    bool rawCut = camCut || seqCut || (g_seqByMap && cineFoot) || ownEyes;
     if (g_cutVeto && !rawCut) g_cutVeto = false;  // mark1: the "not a cutscene" lasts until this one is over
     bool want = rawCut && g_cutSteady && !g_cutVeto;
     if (want != s_flag) s_flag = want, s_chgT = t;
@@ -877,7 +991,7 @@ static void CutsceneTick(DWORD src) {
             InterlockedIncrement(&g_cutGen);
             g_cutscene = true, s_startT = t, s_interT = 0;
             CutNote(5);
-            Log("cutscene: started (%s): %s%s", camCut ? "cinematic flag + cinematic camera" : seqCut ? (gameCam ? "the game's cutscene sequence, on-foot camera" : "the game's cutscene sequence") : "cinematic input mode, on-foot camera",
+            Log("cutscene: started (%s): %s%s", camCut ? "cinematic flag + cinematic camera" : ownEyes ? "one of your marked scenes" : seqCut ? (gameCam ? "the game's cutscene sequence, on-foot camera" : "the game's cutscene sequence") : "cinematic input mode, on-foot camera",
                 g_cutFlat ? "shown on the 2D screen" : "the headset turns the view, the game's camera only moves it",
                 g_vehicle ? "; vehicle mode paused" : "");
         } else {
@@ -892,7 +1006,7 @@ static void CutsceneTick(DWORD src) {
     // there for g_seqHold seconds after its last prompt (prompts come in runs).
     if (!g_cutscene) s_interT = 0;
     else if (kind == 2) s_interT = t ? t : 1;
-    bool in3d = g_seqInter3D && g_cutscene && s_interT && t - s_interT < (DWORD)(g_seqHold * 1000.0f);
+    bool in3d = g_seqInter3D && !ownEyes && g_cutscene && s_interT && t - s_interT < (DWORD)(g_seqHold * 1000.0f);
     if (in3d != g_cutInter) {
         if (in3d) InterlockedIncrement(&g_cutGen);  // the VR view takes its heading from the camera now
         g_cutInter = in3d;
@@ -1322,7 +1436,7 @@ extern "C" void __cdecl AimMatrix(float *mx, BYTE *cam, BYTE *owner) {
             LogV("lookaim: snap turn %s %.0f deg", x > 0 ? "right" : "left", g_snapDeg);
         }
     } else if (ax > 0.15f) {
-        float turn = -(x > 0 ? 1 : -1) * (ax - 0.15f) / 0.85f * 2.6f * dt;  // up to 2.6 rad/s, right = clockwise
+        float turn = -(x > 0 ? 1 : -1) * (ax - 0.15f) / 0.85f * g_turnDegS * 0.0174533f * dt;  // turnspd1, right = clockwise
         float c = cosf(turn), sn = sinf(turn), bx = g_body[0], by = g_body[1];
         SetBody(bx * c - by * sn, bx * sn + by * c);
     }

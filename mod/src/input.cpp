@@ -61,6 +61,7 @@ static void FireNoteTrigger(bool down) {
     s_was = down;
 }
 static volatile DWORD g_lastShotT;  // turtrig1: when the game last fired
+DWORD InputLastShotT() { return g_lastShotT; }  // chargeglass1
 void InputNoteShot() {
     g_lastShotT = GetTickCount();
     LONG t = InterlockedExchange(&g_fireDown, 0);
@@ -92,18 +93,42 @@ static const WORD kOutBits[kOutCount] = {0, XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, 
                                          XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_START,
                                          XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
                                          XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, 0};
-enum { kInA, kInB, kInX, kInY, kInLGrip, kInRGrip, kInLClick, kInRClick, kInMenu, kInGripMenu, kInRGripMenu, kInLT, kInRT, kInStickUp, kInXY, kInAB, kInCount };
-static const char *const kInNames[kInCount] = {"A", "B", "X", "Y", "Left grip", "Right grip", "Left stick click",
-                                               "Right stick click", "Menu button", "Left grip + Menu", "Right grip + Menu",
-                                               "Left trigger", "Right trigger",
-                                               "Right stick pushed up hard", "X + Y together", "A + B together"};
+enum { kInA, kInB, kInX, kInY, kInLGrip, kInRGrip, kInLClick, kInRClick, kInMenu, kInGripMenu, kInRGripMenu, kInLT, kInRT, kInStickUp, kInXY, kInAB,
+       kInStickDown, kInLRest, kInRRest, kInCount };  // ctl2: turning stick down, thumbrests (appended: ini keys by name)
+// ctl4 (DrGonzaga 24 Nov: "name the actual thumbstick ... R thumbstick up"): real control names.
+static const char *const kInNames[kInCount] = {"A", "B", "X", "Y", "L grip", "R grip", "L thumbstick click",
+                                               "R thumbstick click", "Menu button", "L grip + Menu", "R grip + Menu",
+                                               "L trigger", "R trigger",
+                                               "R thumbstick up", "X + Y together", "A + B together",
+                                               "R thumbstick down", "L thumbrest", "R thumbrest"};
+static bool g_swapSticks;               // swapstick1: [buttons] SwapSticks
+static const char *InName(int in) {  // with the sticks swapped, turning is on the left thumbstick
+    if (g_swapSticks && in == kInStickUp) return "L thumbstick up";
+    if (g_swapSticks && in == kInStickDown) return "L thumbstick down";
+    return in >= 0 && in < kInCount ? kInNames[in] : "?";  // namefix1: was calling itself (endless, froze the Controls page)
+}
 static const int kInDefaults[kInCount] = {kOutA, kOutB, kOutX, kOutY, kOutLB, kOutRB, kOutLS, kOutRS, kOutStart, kOutBack,
-                                          kOutNone, kOutLT, kOutRT, kOutRight, kOutLeft, kOutUp};
+                                          kOutNone, kOutLT, kOutRT, kOutRight, kOutLeft, kOutUp, kOutB, kOutNone, kOutNone};
 static int g_map[kInCount] = {kOutA,  kOutB,     kOutX,  kOutY,  kOutLB, kOutRB,   kOutLS,   kOutRS,
-                              kOutStart, kOutBack, kOutNone, kOutLT, kOutRT, kOutRight, kOutLeft, kOutUp};
+                              kOutStart, kOutBack, kOutNone, kOutLT, kOutRT, kOutRight, kOutLeft, kOutUp, kOutB, kOutNone, kOutNone};
+// ctl3 (phase 2): vehicles and mounted guns have a table of their own ([buttons.vehicle]); grips are free there.
+// Without that section it starts as a copy of the on-foot table, so vehicles behave as before until changed.
+static int g_vmap[kInCount];
+static int g_hbOut = kOutA;  // ctl3: [buttons.vehicle] GameHandbrake, the pad button the game brakes with (a guess: A)
+// The layout Setup ships (DrGonzaga's), not the plain A = A table above.
+static const int kShip[kInCount] = {kOutA, kOutX, kOutB, kOutY, kOutLB, kOutRB, kOutLS, kOutRS, kOutStart, kOutBack, kOutHud,
+                                    kOutLT, kOutRT, kOutRight, kOutLeft, kOutDown, kOutB, kOutNone, kOutNone};
+int *InputVehMap(int i) { return &g_vmap[i < 0 || i >= kInCount ? 0 : i]; }
+int *InputHandbrakeOut() { return &g_hbOut; }
+static int g_tableNow;  // ctl3/ctl4: table in use: 0 on foot, 1 vehicle, 2 game menus (shipped)
+static int g_throwIn = kInX;            // ctl2: [buttons] ThrowInput, the input that throws the wrist grenade
+static int g_zoomBtn[2] = {0, 2};       // ctl2: [buttons] ZoomInButton / ZoomOutButton (0 A, 1 B, 2 X, 3 Y)
+int *InputThrowIn() { return &g_throwIn; }
+int *InputZoomBtn(int w) { return &g_zoomBtn[w ? 1 : 0]; }
+bool *InputSwapSticks() { return &g_swapSticks; }
 
 int InputMapCount() { return kInCount; }
-const char *InputMapName(int i) { return i >= 0 && i < kInCount ? kInNames[i] : ""; }
+const char *InputMapName(int i) { return i >= 0 && i < kInCount ? InName(i) : ""; }
 int *InputMap(int i) { return &g_map[i < 0 || i >= kInCount ? 0 : i]; }
 int InputOutputCount() { return kOutCount; }
 const char *InputOutputName(int o) { return o >= 0 && o < kOutCount ? kOutNames[o] : "?"; }
@@ -111,7 +136,8 @@ void InputMapDefaults() { memcpy(g_map, kInDefaults, sizeof g_map); }
 
 static const wchar_t *const kInKeys[kInCount] = {L"A", L"B", L"X", L"Y", L"LeftGrip", L"RightGrip", L"LeftStickClick",
                                                  L"RightStickClick", L"Menu", L"LeftGripMenu", L"RightGripMenu", L"LeftTrigger",
-                                                 L"RightTrigger", L"RightStickUp", L"XY", L"AB"};
+                                                 L"RightTrigger", L"RightStickUp", L"XY", L"AB", L"RightStickDown",
+                                                 L"LeftThumbrest", L"RightThumbrest"};
 // grip1 (DrGonzaga 3 Nov): holding the right grip keeps the controller tracked
 // (the Quest dropped it when held dead still), so on foot the grip sends
 // nothing and X sends what the grip was set to (grenade; grip2, DrGonzaga 3 Nov). Off foot as mapped.
@@ -196,6 +222,24 @@ void InputMapLoad() {
         int v = GetPrivateProfileIntW(L"buttons", kInKeys[i], kInDefaults[i], path);
         g_map[i] = v >= 0 && v < kOutCount ? v : kInDefaults[i];
     }
+    g_throwIn = GetPrivateProfileIntW(L"buttons", L"ThrowInput", kInX, path);  // ctl2
+    if (g_throwIn < 0 || g_throwIn >= kInCount || g_throwIn == kInLGrip || g_throwIn == kInRGrip) g_throwIn = kInX;
+    for (int w = 0; w < 2; ++w) {
+        int v = GetPrivateProfileIntW(L"buttons", w ? L"ZoomOutButton" : L"ZoomInButton", w ? 2 : 0, path);
+        g_zoomBtn[w] = v >= 0 && v < 4 ? v : (w ? 2 : 0);
+    }
+    g_swapSticks = GetPrivateProfileIntW(L"buttons", L"SwapSticks", 0, path) != 0;  // swapstick1
+    for (int i = 0; i < kInCount; ++i) {  // ctl3
+        int v = GetPrivateProfileIntW(L"buttons.vehicle", kInKeys[i], g_map[i], path);
+        g_vmap[i] = v >= 0 && v < kOutCount ? v : g_map[i];
+    }
+    g_hbOut = GetPrivateProfileIntW(L"buttons.vehicle", L"GameHandbrake", kOutA, path);
+    if (g_hbOut < kOutA || g_hbOut > kOutRS) g_hbOut = kOutA;
+}
+void InputShipDefaults() {  // ctl3: the Controls page's reset (both tables)
+    memcpy(g_map, kShip, sizeof g_map), memcpy(g_vmap, kShip, sizeof g_vmap);
+    g_throwIn = kInX, g_zoomBtn[0] = 0, g_zoomBtn[1] = 2, g_swapSticks = false, g_hbOut = kOutA;
+    g_gripHold = true, g_xMode = 0, g_menuMap = true, g_lgripWheel = false;
 }
 void InputMapSave() {
     wchar_t path[MAX_PATH], buf[16];
@@ -213,6 +257,179 @@ void InputMapSave() {
     swprintf(buf, 16, L"%d", g_walkDir);
     WritePrivateProfileStringW(L"buttons", L"WalkDirection", buf, path);  // walkdir1
     WritePrivateProfileStringW(L"buttons", L"MenuNaturalBX", g_menuXB ? L"1" : L"0", path);  // menuxb1
+    swprintf(buf, 16, L"%d", g_throwIn);  // ctl2
+    WritePrivateProfileStringW(L"buttons", L"ThrowInput", buf, path);
+    swprintf(buf, 16, L"%d", g_zoomBtn[0]);
+    WritePrivateProfileStringW(L"buttons", L"ZoomInButton", buf, path);
+    swprintf(buf, 16, L"%d", g_zoomBtn[1]);
+    WritePrivateProfileStringW(L"buttons", L"ZoomOutButton", buf, path);
+    WritePrivateProfileStringW(L"buttons", L"SwapSticks", g_swapSticks ? L"1" : L"0", path);  // swapstick1
+    for (int i = 0; i < kInCount; ++i) {  // ctl3
+        swprintf(buf, 16, L"%d", g_vmap[i]);
+        WritePrivateProfileStringW(L"buttons.vehicle", kInKeys[i], buf, path);
+    }
+    swprintf(buf, 16, L"%d", g_hbOut);
+    WritePrivateProfileStringW(L"buttons.vehicle", L"GameHandbrake", buf, path);
+    PromptsRefresh();  // ctl3: prompts follow the bindings
+}
+
+// ctl2 (DrGonzaga 23 Nov, controls revamp: "action -> control ... include thumbsticks"): press-to-bind. The VR menu's
+// Controls page asks for a control; the next control pressed (after everything is let go) is taken. While asking, and
+// until that press is let go, the menu sees no buttons (so B doesn't close it and the trigger doesn't click).
+// Grips are never taken (they steady the guns on foot). Two face buttons within 120 ms = the X+Y / A+B combo.
+static volatile int g_capKind = -1, g_capOut, g_capVeh;  // ctl3: g_capVeh 1 = the vehicle table
+static DWORD g_capT0, g_capFirstT;
+static bool g_capArmed, g_capQuiet, g_capPrev[kInCount];
+static int g_capFirst = -1;
+static char g_capMsg[480];
+static const char *ZoomName(int b) { static const char *const n[4] = {"A", "B", "X", "Y"}; return n[b & 3]; }
+void InputCaptureBegin(int kind, int out) {
+    g_capVeh = kind >= 10, kind %= 10;  // ctl3: kind + 10 = vehicle table
+    g_capOut = out, g_capT0 = GetTickCount(), g_capArmed = false, g_capFirst = -1;
+    snprintf(g_capMsg, sizeof g_capMsg, "Let go of everything, then press the control you want.");
+    g_capKind = kind;
+}
+void InputCaptureCancel() { g_capKind = -1; }
+bool InputCapturing() { return g_capKind >= 0; }
+float InputCaptureLeft() { return g_capKind < 0 ? 0 : (8000 - (int)(GetTickCount() - g_capT0)) / 1000.f; }
+const char *InputCaptureMsg() { return g_capMsg; }
+void InputClear(int out, bool veh) {  // ctl3: no control does this action (grips kept)
+    int *m = veh ? g_vmap : g_map;
+    for (int j = 0; j < kInCount; ++j)
+        if (m[j] == out && (veh || (j != kInLGrip && j != kInRGrip))) m[j] = kOutNone;
+    snprintf(g_capMsg, sizeof g_capMsg, "Cleared: nothing does that now.");
+    MenuSaveLater(InputMapSave);
+}
+static const char *BoundIn(const int *m, int out, char *buf, int n, bool grips);
+const char *InputBoundTo(int out, char *buf, int n) { return BoundIn(g_map, out, buf, n, false); }
+const char *InputVehBoundTo(int out, char *buf, int n) { return BoundIn(g_vmap, out, buf, n, true); }
+static const char *BoundIn(const int *m, int out, char *buf, int n, bool grips) {
+    buf[0] = 0;
+    static const int order[] = {kInA, kInB, kInX, kInY, kInLT, kInRT, kInLClick, kInRClick, kInStickUp, kInStickDown,
+                                kInLRest, kInRRest, kInXY, kInAB, kInMenu, kInGripMenu, kInRGripMenu, kInLGrip, kInRGrip};
+    for (int in : order) {
+        if (m[in] != out || (!grips && (in == kInLGrip || in == kInRGrip))) continue;
+        if (!grips && in == g_throwIn && g_gripHold && m == g_map) continue;  // ctl4: on foot it throws (DrGonzaga: "it's not actually X")
+        if (in == kInLRest || in == kInRRest) { if (!XrThumbrestsBound()) continue; }
+        if (buf[0]) strncat(buf, " or ", n - strlen(buf) - 1);
+        strncat(buf, InName(in), n - strlen(buf) - 1);
+    }
+    return buf;
+}
+static void CapRaw(const VrPad &p, bool c[kInCount]) {
+    memset(c, 0, kInCount);
+    c[kInA] = p.a, c[kInB] = p.b, c[kInX] = p.x, c[kInY] = p.y;
+    bool both = p.lclick && p.rclick;  // both clicks = the VR menu
+    c[kInLClick] = p.lclick && !both, c[kInRClick] = p.rclick && !both;
+    c[kInGripMenu] = p.menu && p.lgrip > 0.5f, c[kInRGripMenu] = p.menu && p.rgrip > 0.5f && !c[kInGripMenu];
+    c[kInMenu] = p.menu && !c[kInGripMenu] && !c[kInRGripMenu];
+    c[kInLT] = p.lt > 0.6f, c[kInRT] = p.rt > 0.6f;
+    c[kInStickUp] = p.ry > 0.85f && fabsf(p.rx) < 0.6f, c[kInStickDown] = p.ry < -0.85f && fabsf(p.rx) < 0.6f;
+    c[kInLRest] = p.lrest, c[kInRRest] = p.rrest;
+    if (g_capVeh) c[kInLGrip] = p.lgrip > 0.5f && !p.menu, c[kInRGrip] = p.rgrip > 0.5f && !p.menu;  // ctl3: free in vehicles
+}
+static bool CapOk(int kind, int in) {
+    if ((in == kInLGrip || in == kInRGrip) && !(kind == 0 && g_capVeh)) return false;
+    if (kind == 1) return in == kInA || in == kInB || in == kInX || in == kInY || in == kInLClick || in == kInRClick ||
+                          in == kInStickUp || in == kInStickDown || in == kInLRest || in == kInRRest;
+    if (kind >= 2) return in >= kInA && in <= kInY;
+    return true;
+}
+// ctl4 (DrGonzaga 24 Nov: "pilfer has to be the same as reload/get into vehicle/operate turret ... inform the user"):
+// the game does several jobs with one pad button, so they always move together; the notice names them.
+static const char *Linked(int o) {
+    switch (o) {
+    case kOutA: return "jump, climb and get on a zipline";
+    case kOutB: return "crouch / stand";
+    case kOutX: return "use, pick up, loot / pilfer, reload, get into vehicles and use mounted guns";
+    case kOutY: return "last weapon (tap) and heal (hold)";
+    case kOutRT: return "fire and set off C4";
+    case kOutLT: return "steady the scope or bow, and place C4";
+    case kOutRS: return "melee and takedowns";
+    case kOutLS: return "sprint";
+    }
+    return nullptr;
+}
+static void SwapInto(int *m, int in, int o, bool grips, char *moved, int mn) {
+    int old = m[in];
+    if (old == o) return;
+    for (int j = 0; j < kInCount; ++j)
+        if (j != in && m[j] == o && (grips || (j != kInLGrip && j != kInRGrip))) {
+            m[j] = old;
+            if (moved && old != kOutNone && !moved[0]) snprintf(moved, mn, " Its old job moved to %s.", InName(j));
+        }
+    m[in] = o;
+}
+static void CapApply(int kind, int in) {
+    if (kind == 0) {
+        int o = g_capOut;
+        char moved[120] = "", link[200] = "";
+        if (g_capVeh) SwapInto(g_vmap, in, o, true, moved, sizeof moved);
+        else {
+            SwapInto(g_map, in, o, false, moved, sizeof moved);
+            SwapInto(g_vmap, in, o, true, nullptr, 0);  // ctl4: getting out of vehicles follows getting in
+        }
+        const char *l = g_capVeh ? nullptr : Linked(o);
+        if (l) snprintf(link, sizeof link, " The game uses this one button for: %s, so they all moved (vehicles too). Game menus keep their own buttons.", l);
+        snprintf(g_capMsg, sizeof g_capMsg, "Set to %s.%s%s%s", InName(in), moved, link,
+                 !g_capVeh && in == g_throwIn ? " (With a gun in hand on foot it still throws the wrist grenade.)" : "");
+    } else if (kind == 1) {
+        int old = g_throwIn;
+        if (in != old) { int t = g_map[in]; g_map[in] = g_map[old], g_map[old] = t; g_throwIn = in; }
+        snprintf(g_capMsg, sizeof g_capMsg, "Wrist grenade throw set to %s.%s", InName(in),
+                 in != old ? " The jobs of the two controls swapped for the rest of the time." : "");
+    } else {
+        int w = kind - 2, b = in - kInA;
+        if (g_zoomBtn[1 - w] == b) g_zoomBtn[1 - w] = g_zoomBtn[w];
+        g_zoomBtn[w] = b;
+        snprintf(g_capMsg, sizeof g_capMsg, "Scope zoom: in %s, out %s (while scoped only).", ZoomName(g_zoomBtn[0]), ZoomName(g_zoomBtn[1]));
+    }
+    Log("input: bound by press: %s", g_capMsg);
+}
+// Input thread, each pad read before the menu. Returns true while the menu should get no buttons.
+static bool CaptureStep(const VrPad &p) {
+    bool c[kInCount];
+    CapRaw(p, c);
+    bool any = false;
+    for (int i = 0; i < kInCount; ++i) any |= c[i] && i != kInLRest && i != kInRRest;
+    int kind = g_capKind;
+    if (kind < 0) {
+        if (g_capQuiet && !any) g_capQuiet = false;  // grips don't count (often held to keep tracking)
+        return g_capQuiet;
+    }
+    DWORD now = GetTickCount();
+    if (now - g_capT0 > 8000) {
+        snprintf(g_capMsg, sizeof g_capMsg, "Nothing pressed: unchanged.");
+        g_capKind = -1, g_capQuiet = true;
+        return true;
+    }
+    if (!g_capArmed) {  // wait for everything let go (a thumb resting on a thumbrest is fine: only a new touch counts)
+        if (!any) g_capArmed = true, snprintf(g_capMsg, sizeof g_capMsg, "Press the control you want now.");
+        memcpy(g_capPrev, c, sizeof g_capPrev);
+        return true;
+    }
+    if (g_capFirst < 0)
+        for (int i = 0; i < kInCount; ++i)
+            if (c[i] && !g_capPrev[i]) { g_capFirst = i, g_capFirstT = now; break; }
+    int got = -1;
+    if (g_capFirst >= 0) {
+        if (p.x && p.y) got = kInXY;
+        else if (p.a && p.b) got = kInAB;
+        else if (now - g_capFirstT >= 120) got = g_capFirst;
+        if (got >= 0 && kind != 0 && (got == kInXY || got == kInAB)) got = -2;
+        if (got >= 0 && !CapOk(kind, got)) got = -2;
+        if (got == -2) {
+            snprintf(g_capMsg, sizeof g_capMsg, kind >= 2 ? "Zoom can only go on A, B, X or Y. Let go and try another." :
+                     "That control can't do this job. Let go and try another.");
+            g_capArmed = false, g_capFirst = -1;
+        } else if (got >= 0) {
+            CapApply(kind, got);
+            g_capKind = -1, g_capQuiet = true;
+            MenuSaveLater(InputMapSave);
+        }
+    }
+    memcpy(g_capPrev, c, sizeof g_capPrev);
+    return true;
 }
 
 // dpad2 (DrGonzaga 2 Nov): two buttons pressed together (within 70 ms) are a
@@ -259,7 +476,7 @@ static bool StickUp(VrPad &p, bool ok) {
 // bowmenu1 (DrGonzaga 13 Nov): the left grip as pressed, before the bow / two-handed hold takes it
 // from the game, so left grip + Menu is still the pause menu with the bow (or a gun) held by it.
 static bool g_lgripRaw;
-static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
+static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp, bool stickDown) {
     bool lgrip = p.lgrip > 0.5f, rgrip = p.rgrip > 0.5f;
     float in[kInCount] = {};
     static Pair s_xy, s_ab;
@@ -268,6 +485,9 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
     in[kInAB] = PairInput(p.a, p.b, s_ab, a, b2);
     in[kInA] = a, in[kInB] = b2, in[kInX] = x, in[kInY] = y;
     in[kInStickUp] = stickUp;
+    in[kInStickDown] = stickDown;  // ctl2: was crouch (pad B) sent after the mix
+    in[kInLRest] = p.lrest, in[kInRRest] = p.rrest;  // rest1
+    const int ti = g_throwIn;  // ctl2: the input that throws the wrist grenade (was always X)
     // A grip + Menu combo replaces both.
     if (p.menu && lgrip) in[kInGripMenu] = 1, in[kInRGrip] = rgrip;
     else if (p.menu && rgrip) in[kInRGripMenu] = 1, in[kInLGrip] = lgrip;
@@ -278,7 +498,20 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
     float lt = 0, rt = 0;
     bool hud = false;
     int map[kInCount];
-    memcpy(map, g_map, sizeof map);
+    {   // ctl3: in a vehicle or on a mounted gun, the vehicle table (decided while nothing is held, so a press
+        // keeps its job when you get in or out)
+        // ctl4: in the game's own menus and map (paused) the shipped buttons (select A, waypoint B, ...), whatever is bound
+        bool veh = EngineInVehicle() || EngineTurret();
+        int want = GamePaused() && !MenuOpen() ? 2 : veh ? 1 : 0;
+        bool held = false;
+        for (int i = 0; i < kInCount; ++i) held |= in[i] > 0.5f && i != kInLRest && i != kInRRest && i != kInLGrip && i != kInRGrip;
+        if (want != g_tableNow && !held) {
+            g_tableNow = want;
+            static int s_n;
+            if (s_n < 60) ++s_n, Log("input: %s button table", want == 2 ? "game menu (shipped)" : want ? "vehicle" : "on-foot");
+        }
+    }
+    memcpy(map, g_tableNow == 2 ? kShip : g_tableNow ? g_vmap : g_map, sizeof map);
     // grip3 (DrGonzaga 3 Nov): leaving the pause / map screen with X threw a grenade:
     // X is the game's back button there, and the grenade mapping took over as the
     // menu closed with X still held. Now the game's own mapping is used while it is
@@ -293,7 +526,7 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
         // weapon in hand (none in such scenes), as it's for throwing grenades.
         bool armed = now - GunAttachHandTick() < 300;
         bool ok = g_gripHold && EngineOnFoot() && armed && now - s_pausedAt > 500;
-        bool xDown = in[kInX] > 0.5f;
+        bool xDown = in[ti] > 0.5f;
         bool xPress = xDown && !s_xWas;
         if (!xDown || !s_xWas) s_xGrenade = ok;  // decided when X goes down
         s_xWas = xDown;
@@ -302,9 +535,9 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
         if (xPress) s_xMap = s_xGrenade && g_xMode == 1 && !EngineCutscene() && !EngineInVehicle() && !MenuOpen();
         if (!xDown) s_xMap = false;
         if (xPress && s_xMap) HudMinimapToggle();
-        if (s_xMap) map[kInX] = kOutNone;
+        if (s_xMap) map[ti] = kOutNone;
         // map1x: X opens the game's map (the pad's Back, as left grip + Menu), same gating.
-        if (s_xGrenade && g_xMode == 2 && !EngineCutscene() && !EngineInVehicle() && !MenuOpen()) map[kInX] = kOutBack;
+        if (s_xGrenade && g_xMode == 2 && !EngineCutscene() && !EngineInVehicle() && !MenuOpen()) map[ti] = kOutBack;
         g_xThrow = xDown && s_xGrenade && g_xMode == 0;
         // wrist1m: Menu = the game's map, left trigger (or left grip) + Menu = pause. Each press keeps
         // the job it started with (decided when it goes down), so closing the pause menu never opens the map.
@@ -339,9 +572,9 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
         if (HolsterTriggerOwned(p.rt) && !EngineTurret()) in[kInRT] = 0;  // nade1: the trigger arms the grenade, the gun doesn't fire (turtrig1: never on a mounted gun)
         if (HolsterActive() || s_rgOurs) map[kInRGrip] = kOutNone;
         // holster2: a throwable picked from the chest: the game's throw (the grip's own mapping) while held.
-        if (HolsterThrowHeld()) in[kInRGrip] = 1, map[kInRGrip] = g_map[kInRGrip] != kOutNone ? g_map[kInRGrip] : g_map[kInX];
+        if (HolsterThrowHeld()) in[kInRGrip] = 1, map[kInRGrip] = g_map[kInRGrip] != kOutNone ? g_map[kInRGrip] : g_map[ti];  // (on-foot table: throwing)
         s_throwOut = HolsterThrowHeld() ? map[kInRGrip] : -1;  // heartadj1
-        if (s_xGrenade && g_xMode == 0) map[kInX] = g_map[kInRGrip];  // lasers1: minimap mode never throws
+        if (s_xGrenade && g_xMode == 0) map[ti] = g_map[kInRGrip];  // lasers1: minimap mode never throws
         // menuxb1 (DrGonzaga 23 Nov: "detecting when a menu is open, and swapping buttons? So B is actually B"): the
         // shipped layout sends Touch B as the pad's X (reload / use) and Touch X as the pad's B (crouch / back), so
         // in the game's menus and map the pictures said X for Touch B. While the game is paused (pause menu, map,
@@ -411,6 +644,60 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp) {
     g.sThumbRY = Bigger(g.sThumbRY, Axis(p.ry));
 }
 
+// ctl3 (phase 2, DrGonzaga 23 Nov: "make sure the in-game prompts adjust appropriately"): the prompt tokens follow the
+// live bindings. A token's name from the bindings is used only when its control differs from the shipped layout, so
+// DrGonzaga's own names in bdvr-prompts.txt ("R-STICK CLICK OR SWING") stay until something is changed.
+static const char *const kInShort[kInCount] = {"A", "B", "X", "Y", "L GRIP", "R GRIP", "L-STICK CLICK", "R-STICK CLICK", "MENU",
+                                               "L GRIP + MENU", "R GRIP + MENU", "LT", "RT", "R-STICK UP", "X + Y", "A + B",
+                                               "R-STICK DOWN", "L THUMBREST", "R THUMBREST"};
+static void LabelFor(const int *m, int out, bool grips, char *b, int n) {
+    b[0] = 0;
+    static const int order[] = {kInA, kInB, kInX, kInY, kInRT, kInLT, kInLClick, kInRClick, kInStickUp, kInStickDown,
+                                kInLRest, kInRRest, kInXY, kInAB, kInMenu, kInGripMenu, kInRGripMenu, kInLGrip, kInRGrip};
+    int k = 0;
+    for (int in : order) {
+        if (m[in] != out || (!grips && (in == kInLGrip || in == kInRGrip)) || k >= 2) continue;
+        const char *nm = kInShort[in];
+        if (g_swapSticks && in == kInStickUp) nm = "L-STICK UP";
+        if (g_swapSticks && in == kInStickDown) nm = "L-STICK DOWN";
+        if (k++) strncat(b, " OR ", n - strlen(b) - 1);
+        strncat(b, nm, n - strlen(b) - 1);
+    }
+}
+bool InputTokenLabel(const wchar_t *tok, int tn, wchar_t *out, int outn) {
+    static const struct { const char *t; int kind, o; } kTok[] = {  // kind 0 on-foot output, 1 vehicle output, 2 throw, 3 zoom
+        {"Jump", 0, kOutA}, {"Climb", 0, kOutA}, {"ZipAttach", 0, kOutA}, {"Interact", 0, kOutX}, {"Loot", 0, kOutX},
+        {"Reload", 0, kOutX}, {"Heal", 0, kOutY}, {"SwitchWeapon", 0, kOutY}, {"Previousweapon", 0, kOutY},
+        {"Run", 0, kOutLS}, {"TakeDown", 0, kOutRS}, {"Crouch", 0, kOutB}, {"Fire", 0, kOutRT}, {"Shoot", 0, kOutRT},
+        {"DetonateIED", 0, kOutRT}, {"IronSight", 0, kOutLT}, {"SteadyAim", 0, kOutLT}, {"PlaceIED", 0, kOutLT},
+        {"ThrowRock", 0, kOutRight}, {"ThrowLure", 0, kOutLeft}, {"Throw", 2, 0}, {"SniperZoom", 3, 0},
+        {"Accelerate", 1, kOutRT}, {"Brake", 1, kOutLT}, {"HoldEnterExit", 1, kOutX}, {"LeaveVehicle", 1, kOutX},
+        {"SwitchSeats", 1, kOutX}, {"HandBrake", 1, -1}};
+    char t8[40];
+    int i;
+    for (i = 0; i < tn && i < 39; ++i) t8[i] = (char)tok[i];
+    t8[i] = 0;
+    for (auto &e : kTok) {
+        if (_stricmp(e.t, t8)) continue;
+        char now[64], ship[64];
+        if (e.kind == 2) {
+            snprintf(now, sizeof now, "%s", kInShort[g_throwIn]), snprintf(ship, sizeof ship, "X");
+            if (g_xMode != 0) return false;
+        } else if (e.kind == 3) {
+            snprintf(now, sizeof now, "%s / %s", ZoomName(g_zoomBtn[0]), ZoomName(g_zoomBtn[1])), snprintf(ship, sizeof ship, "A / X");
+        } else {
+            int o = e.o < 0 ? g_hbOut : e.o;
+            LabelFor(e.kind ? g_vmap : g_map, o, e.kind == 1, now, sizeof now);
+            LabelFor(kShip, o, e.kind == 1, ship, sizeof ship);
+            if (e.o < 0 && g_hbOut != kOutA) ship[0] = 0;  // the handbrake button was changed: always follow
+        }
+        if (!strcmp(now, ship) || !now[0]) return false;
+        MultiByteToWideChar(CP_UTF8, 0, now, -1, out, outn);
+        return true;
+    }
+    return false;
+}
+
 // swing1: a fast swing of the right hand presses melee (right stick click,
 // the game's melee on a pad) for a moment. Speed is measured over at least
 // 30 ms of the controller's movement; a short pause stops one swing counting twice.
@@ -467,6 +754,8 @@ static bool StickCrouch(const VrPad &p, bool onFoot) {
     return t < s_until;
 }
 
+static volatile DWORD g_padXT;  // reloadglass1
+DWORD InputPadXTime() { return g_padXT; }
 static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
     DWORD r;
     if (!g_verboseLog) {
@@ -499,20 +788,30 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
         return r;
     }
     if (r != ERROR_SUCCESS) memset(st, 0, sizeof *st);
-    MenuInput(p);
+    {   // ctl2: press-to-bind; the menu gets no buttons while it is asking (pointing still works)
+        VrPad mp = p;
+        if (CaptureStep(p)) {
+            mp.a = mp.b = mp.x = mp.y = mp.menu = mp.lclick = mp.rclick = mp.lrest = mp.rrest = false;
+            mp.lt = mp.rt = mp.lgrip = mp.rgrip = 0;
+        }
+        MenuInput(mp);
+    }
     // zoom1 (DrGonzaga 6 Nov): while scoped, A zooms in and X zooms out a step; the
     // game doesn't get them. A press that started scoped stays ours until let go.
     {
         // zoom2 (DrGonzaga 6 Nov): X zooms out, not B.
+        // ctl2: the two zoom buttons are a choice now (Controls page), A / X by default.
         static bool s_a, s_x, s_ownA, s_ownX;
+        bool *face[4] = {&p.a, &p.b, &p.x, &p.y};
+        bool &zi = *face[g_zoomBtn[0] & 3], &zo = *face[g_zoomBtn[1] & 3];
         bool sc = g_abZoom && EngineScopePictureActive() && !MenuOpen();  // steadyonly1: also the auto rifle scope
-        if (p.a && !s_a && sc) s_ownA = true, ScopeZoomStep(+1);
-        if (p.x && !s_x && sc) s_ownX = true, ScopeZoomStep(-1);
-        s_a = p.a, s_x = p.x;
-        if (!p.a) s_ownA = false;
-        if (!p.x) s_ownX = false;
-        if (s_ownA) p.a = false;
-        if (s_ownX) p.x = false;
+        if (zi && !s_a && sc) s_ownA = true, ScopeZoomStep(+1);
+        if (zo && !s_x && sc) s_ownX = true, ScopeZoomStep(-1);
+        s_a = zi, s_x = zo;
+        if (!zi) s_ownA = false;
+        if (!zo) s_ownX = false;
+        if (s_ownA) zi = false;
+        if (s_ownX) zo = false;
     }
     // bow1p: the physical bow (left grip holds the bow) owns the right trigger; its draw holds the game's fire.
     const bool cy = CyberEyeInput(p);  // cybereye1: left grip at the head is ours; while on, no bow / two-handed hold
@@ -526,8 +825,9 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
     // left grip + Menu (the map) and vehicles stay as they were.
     else if (!g_lgripWheel && !p.menu && EngineOnFoot() && !EngineInVehicle() && !MenuOpen()) p.lgrip = 0;
     bool up = StickUp(p, EngineOnFoot() && !EngineTurret() && p.lgrip <= 0.5f && !MenuOpen());  // turmove1: not on a mounted gun
+    bool down = StickCrouch(p, EngineOnFoot() && !EngineTurret() && !g_wheelHeld && !MenuOpen());  // turmove1; ctl2: an input now (crouch by default)
     MoveByLeftHand(p);  // lasers1
-    Mix(p, st->Gamepad, up);
+    Mix(p, st->Gamepad, up, down);
     if (bow) st->Gamepad.bRightTrigger = bowRt ? 255 : 0;
     // wheel1: while LB (left grip: the game's weapon wheel) is held, the game
     // gets the right stick exactly as it is, to pick a weapon: no look
@@ -537,7 +837,8 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
     g_wheelHeld = wheel;  // hud: cut-outs back on the main panel while the wheel is up
     if (wheel != s_wheel) {
         s_wheel = wheel;
-        LogV("input: weapon wheel %s", wheel ? "held: right stick to the game" : "let go");
+        static int s_wn;  // ctl4: DrGonzaga 24 Nov, "left grip didn't open weapon wheel": always logged (40 max)
+        if (s_wn < 40) ++s_wn, Log("input: weapon wheel button (pad LB) %s", wheel ? "held: right stick to the game" : "let go");
     }
     // quiver11: no melee at all with the bow in the left hand (reaching for arrows set it off). The
     // press itself had slipped into this comment (bow1p), so the if below took the roomscale lines
@@ -546,8 +847,6 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
     // room1: your own left stick always wins; otherwise roomscale may walk the body.
     if (fabsf(p.lx) > 0.15f || fabsf(p.ly) > 0.15f) EngineUserMoved();
     else if (!wheel && !MenuOpen()) EngineRoomStick(&st->Gamepad.sThumbLX, &st->Gamepad.sThumbLY);
-    if (StickCrouch(p, EngineOnFoot() && !EngineTurret() && !wheel && !MenuOpen()))  // turmove1
-        st->Gamepad.wButtons |= XINPUT_GAMEPAD_B;
     if (EngineCrouchPress() && EngineOnFoot() && !MenuOpen()) st->Gamepad.wButtons |= XINPUT_GAMEPAD_B;  // realcrouch1
     if (CyberEyeDpadUp() && !MenuOpen()) st->Gamepad.wButtons |= XINPUT_GAMEPAD_DPAD_UP;  // cybereye1: the game's binoculars
     if (!MenuOpen()) st->Gamepad.wButtons |= HolsterHeartButton();  // heart1: the cyber heart throw
@@ -622,6 +921,12 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
                 else if (o != kOutHud && o != kOutNone) st->Gamepad.wButtons |= kOutBits[o];
             }
         }
+    }
+    {   // reloadglass1: when the game's X (reload / use) was last pressed, for the rifle scope's glass
+        static bool s_x;
+        bool x = (st->Gamepad.wButtons & XINPUT_GAMEPAD_X) != 0;
+        if (x && !s_x) g_padXT = GetTickCount() | 1;
+        s_x = x;
     }
     // Games may skip a state whose packet number hasn't moved.
     static DWORD packet;

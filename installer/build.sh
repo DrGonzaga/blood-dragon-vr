@@ -20,6 +20,10 @@ RC=i686-w64-mingw32-windres
 rm -rf build/payload
 mkdir -p build/payload out
 cp "$DLL" build/payload/version.dll
+# xrloader2: the 32-bit Khronos OpenXR loader (Apache-2.0), installed to bin\openxr_loader.dll
+XRLOADER=${XRLOADER:-../builds/bd137/openxr_loader.dll}
+[ -f "$XRLOADER" ] || XRLOADER=third_party/openxr_loader.dll
+cp "$XRLOADER" build/payload/openxr_loader.dll
 # the shipped settings = the source ini plus the forced values in src/shipped-overrides.txt
 python3 make_ini.py "$INI" src/shipped-overrides.txt build/payload/fc3vr.ini
 # the pictures: an index (file names, one per line) and one resource each, numbered from IDR_PIC0 (200)
