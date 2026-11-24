@@ -570,6 +570,20 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
         }
     }
 
+    ui.begin(L"Khronos OpenXR loader (bin\\openxr_loader.dll, used only with [vr] OpenXrLoader=1)");
+    {
+        // xrloader2 (v0.72): the 32-bit Khronos loader the mod can use for OpenXR API layers. Another copy already there
+        // (another tool's) is left alone; ours is replaced when it changes.
+        std::string xl = resourceString(IDR_XRLOADER), have;
+        const wstring dst = bin + L"\\openxr_loader.dll";
+        const bool there = readFile(dst, have);
+        if (xl.empty()) ui.end(true, L"not in this Setup");
+        else if (there && have == xl) { stateSet(g, L"XrLoader", L"1"); ui.end(true, L"up to date"); }
+        else if (there && stateGet(g, L"XrLoader") != L"1") ui.end(true, L"another copy is there: kept");
+        else if (!writeFile(dst, xl.data(), xl.size(), &err)) ui.end(false, L"could not write it (the mod works without it)");
+        else { stateSet(g, L"XrLoader", L"1"); ui.end(true, L""); }
+    }
+
     ui.begin(L"Copying the menu font and controls pictures");
     {
         const wstring pd = picDir(g);
@@ -717,6 +731,11 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
         if (fileExists(pf) && !o.keepIni) MoveFileExW(pf.c_str(), (bak + L"\\bdvr-prompts-" + stamp() + L".txt").c_str(), MOVEFILE_COPY_ALLOWED);
     }
     DeleteFileW((mod + L"\\bdvr-prompts.default.txt").c_str());
+    {  // xrloader2: the OpenXR loader only if Setup put it there and it is still ours
+        std::string xl = resourceString(IDR_XRLOADER), have;
+        const wstring xf = bin + L"\\openxr_loader.dll";
+        if (stateGet(g, L"XrLoader") == L"1" && readFile(xf, have) && have == xl) DeleteFileW(xf.c_str());
+    }
     DeleteFileW((bin + L"\\fc3vr.log").c_str());
     DeleteFileW((bin + L"\\fc3vr.old.log").c_str());
     DeleteFileW((bin + L"\\fc3vr_bowstring.bin").c_str());  // the mod's learnt bow string, made again on first use

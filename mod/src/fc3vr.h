@@ -180,10 +180,29 @@ struct VrPad {
     bool active;
     float lx, ly, rx, ry, lt, rt, lgrip, rgrip;
     bool a, b, x, y, menu, lclick, rclick;
+    bool lrest, rrest;  // rest1: thumbrest touched
     bool handValid[2];
     float handQ[2][4], handP[2][3];
 };
 bool XrGetPad(VrPad *out);
+bool XrThumbrestsBound();   // rest1
+bool *InputSwapSticks();    // swapstick1: [buttons] SwapSticks
+// ctl2 (controls revamp, input.cpp): press-to-bind for the VR menu's Controls page
+void InputCaptureBegin(int kind, int out);  // kind 0 = game action 'out', 1 = wrist grenade throw, 2 zoom in, 3 zoom out
+void InputCaptureCancel();
+bool InputCapturing();
+float InputCaptureLeft();   // seconds left
+const char *InputCaptureMsg();
+const char *InputBoundTo(int out, char *buf, int n);  // the controls sending game action 'out', "" none
+int *InputThrowIn();
+int *InputVehMap(int i);    // ctl3: [buttons.vehicle]
+int *InputHandbrakeOut();   // ctl3: pad output the game brakes with
+const char *InputVehBoundTo(int out, char *buf, int n);
+void InputClear(int out, bool veh);
+void InputShipDefaults();
+bool InputTokenLabel(const wchar_t *tok, int n, wchar_t *out, int outn);  // prompts.cpp
+void PromptsRefresh();        // the input that throws the wrist grenade (kIn index)
+int *InputZoomBtn(int which);  // 0 in, 1 out: 0 A, 1 B, 2 X, 3 Y
 bool *VrLeftHanded();
 void GunAttachAxesW(float out[9]);  // lefty2: the gun's right / forward / up (world), last HandFrame
 bool *HandsMirrorArms();  // lefty2: [vr] LeftHandedMirrorArms  // lefty1 (xr.cpp): [vr] LeftHanded: the controllers swap roles (gun on the left)
@@ -217,7 +236,17 @@ void BoneHookInstallBd(unsigned char *fc3);  // bd4
 void BoneHookLog();
 bool HeadtrackHand(int hand, float m[16], float off[3] = nullptr);  // hand aim rotation (+ offset from the recentred head), recentred frame
 bool HeadtrackHandRaw(int hand, float m[16], float off[3]);  // twohand1: without the two-handed turn
+bool HeadtrackHandUnturned(int hand, float m[16], float off[3]);  // mount1: HeadtrackHand without the stock mount angle
+float *MountAngle(int i);         // mount1: 0 front up, 1 front right (degrees), [aim] StockMountPitch / StockMountYaw
+void MountSave();
+int MountCheekKind(float out[3], const char **gun);  // 0 controller, 1 from a rifle scope (gun), 2 learnt; out m, controller axes
+void MountCheekDefault();
+void MountCheekLearnIn(float s);
+float MountCheekLearnLeft();      // seconds left of the countdown, 0 none
+const char *MountCheekMsg();
+float MountBuzz();
 // twohand1 (twohand.cpp): left grip on the front of the gun = aim along the line between the hands
+float *BowSteadySmoothing();  // bowsteady1: [bow] SteadySmoothing
 bool TwoHandInput(const struct VrPad &p);  // input thread; true = the left grip press is ours
 void TwoHandApply(float m[16], const float offR[3]);
 bool TwoHandHeld();  // both grips: two-handed, or hands together (pistolgrip1)
@@ -386,6 +415,7 @@ float *BowNockAhead();  // bow7p: nocked arrow moved along itself (m)
 bool *BowPreviewNocked();  // bow7p
 float *BowNockHands();     // bow12p
 float *BowUnnockAngle();   // unnock1: deg, 0 = never
+DWORD InputPadXTime();  // reloadglass1: when the game's X was last pressed (0 never)
 bool BowCancelTap();       // unnock9: input.cpp holds the game's reload (pad X) to cancel a draw
 bool *BowUnnockCancel();   // unnock2: un-nocking may call off a draw the game has started
 float *BowDropIn();
@@ -581,7 +611,8 @@ int EngineLookMode();
 void EngineSetLookMode(int m);
 float *EngineSteerTuning();
 bool *EngineSnapTurn();      // snap1: snap turn on the right stick ([vr] SnapTurn)
-float *EngineSnapAngle();    // snap1: degrees per snap ([vr] SnapTurnAngle)
+float *EngineSnapAngle();
+float *EngineTurnSpeed();  // turnspd1: smooth turn, deg/s at full stick    // snap1: degrees per snap ([vr] SnapTurnAngle)
 void EngineSetRightY(SHORT y);
 void EngineSetLookRates(float yaw, float pitch);  // look3
 float EngineSteerError();
@@ -819,6 +850,15 @@ float EngineHeadDrop();     // m below the recentred height
 float *InputCrouchCap();     // adscrouch1
 float *InputSlowSpeeds();   // ads1: [0] on/off for ADS, [1] crouched
 float StockKickT();         // kick2: 0 gun close .. 1 arm out (gunstock distances)
+float GunAttachGameGunDev();  // chargeglass2: the game's own gun turn off its rest turn now (0 = at rest)
+bool GunAttachSingleShot();  // chargeglass1: the Kobracon before its full-auto upgrade (charges after every shot)
+DWORD InputLastShotT();      // chargeglass1: when the player last fired (0 never)
+float *ScopeChargeHide();    // chargeglass1: [scope] ChargeHideSeconds
+void GunAttachGlueTick(BYTE *ent);  // glue1: game thread
+bool GunAttachGlue(float C[3], float ax[3][3]);  // glue1: rifle glass follows the rifle's own animation
+bool *GunAttachGlueOn();  // glue1: [scope] ChargeGlue
+int GunAttachGlueState();  // glue1: 0 not the bolt rifle, 1 no bone table, 2 learning rest, 3 following
+float *ScopeBoltReloadHide();  // boltreload1: [scope] BoltReloadHideSeconds
 void GunAttachShot();       // a player shot, not scoped (bonehook)
 void GunAttachShotDir(const float beam[3], const float shot[3]);  // aimdev1: each bullet's real direction (unit, world)
 bool *GunKickFollowsShots();
@@ -848,8 +888,12 @@ extern bool g_seqBySeq;       // movie1: [vr] CutsceneBySequence, the game's own
 bool EngineFlat();            // this frame is a cutscene shown on the 2D screen
 void EngineCutsceneMark(bool was);  // mark1: DrGonzaga's 'was / wasn't a cutscene' (logged with recent history)
 LONG EngineCutsceneMarks(bool was);
+int EngineScenesListed();       // scenelist1
+void EngineScenesForget();
+const char *EngineSceneMsg();
 // seq1 (engine.cpp): the game's input mode tells button-prompt scenes from plain cutscenes
 extern bool g_seqInter3D;     // [vr] CutscenePromptsIn3D
+extern bool g_sceneScreen;    // scene2: [vr] CutsceneOwnEyesScreen
 extern bool g_seqByMap;       // [vr] CutsceneByInputMode (test)
 extern float g_seqHold;       // [vr] CutscenePromptHold (seconds)
 const char *EngineInputModeName(char *buf, size_t cap);  // the input mode in force, for the menu
@@ -955,6 +999,10 @@ void LaserDrawFx(IDXGISwapChain *sc, const LaserFx &fx);  // laser.cpp
 // slowsnd1 (slowsnd.cpp): the game's sounds (XAudio2 voices) slowed with slow motion
 void SlowSndStart();             // hook.cpp, as the mod starts
 void SlowSndLoad();
+void SoundVolLoad();         // vol1: [sound] Master / Effects / MusicSpeech
+void SoundVolSave();
+float *SoundVol(int i);      // vol1: 0 master, 1 effects, 2 music and speech (0..1)
+void SoundVolChanged();
 void SlowSndSave();
 void SlowSndTick(float speed);   // slowmo.cpp, input thread
 bool *SlowSndOn();

@@ -28,7 +28,7 @@ Copy everything in the "Manual install\bin" folder into the game's bin folder
 UNINSTALL
 Run Setup and choose Uninstall, or use Windows Settings > Apps > Blood Dragon VR.
 By hand: delete bin\version.dll (or bin\dinput8.dll if Setup used that name), bin\fc3vr.ini,
-bin\fc3vr.log, bin\bdvr-prompts.txt and the bin\bdvr-pictures folder.
+bin\fc3vr.log, bin\bdvr-prompts.txt, bin\openxr_loader.dll and the bin\bdvr-pictures folder.
 
 IN THE GAME
 * Click both thumbsticks together to open the VR menu. Its Controls page shows every button.

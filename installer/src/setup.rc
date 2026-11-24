@@ -8,6 +8,7 @@ IDR_TIPS       RCDATA "tips.txt"
 IDR_CONTROLSPDF RCDATA "../build/payload/controls.pdf"
 IDR_PICINDEX   RCDATA "../build/payload/pictures.txt"
 IDR_PROMPTS    RCDATA "../build/payload/bdvr-prompts.txt"
+IDR_XRLOADER   RCDATA "../build/payload/openxr_loader.dll"
 #include "../build/pictures.rc"
 
 VS_VERSION_INFO VERSIONINFO

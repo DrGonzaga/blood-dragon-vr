@@ -201,6 +201,7 @@ void SlowmoLoad() {
     g_btnReach = rr < 0.04f ? 0.04f : rr > 0.3f ? 0.3f : rr;
     SlowFxLoad();  // slowfx1
     SlowSndLoad();  // slowsnd1
+    SoundVolLoad();  // vol1
 }
 void SlowmoSave() {
     SaveF(L"On", g_on ? 1.f : 0.f);

@@ -743,10 +743,28 @@ static bool EmptyGameAnim(BYTE *bones, int n) {
     static DWORD s_t, s_calmT, s_animT;
     static float s_max;
     static int s_logs;
+    static float s_refDev;  // settle1
+    static DWORD s_steadyT;
     DWORD now = GetTickCount();
     if (n <= 83) return false;
-    if (now - s_t > 500) s_have = false, s_anim = false, s_away = 0, s_max = 0;  // a new stretch with no weapon
+    // settle1 (DrGonzaga 24 Nov, bd149: hands frozen after the second cutscene until the map was opened): a new stretch
+    // (after a cutscene, the map, a weapon) used to take the very first frame as the usual place, while the game's
+    // arms were still in their end-of-scene pose; they then sat 30 cm "away" from it for good. Now it waits 0.5 s
+    // (hands tracked meanwhile) before learning the usual place, like a change of stance.
+    const bool fresh = now - s_t > 500;
+    if (fresh) s_have = false, s_anim = false, s_away = 0, s_max = 0;  // a new stretch with no weapon
     s_t = now;
+    // crouchhands1 (DrGonzaga 24 Nov, bd147: "hands are frozen when I'm crouched"): crouching moves the game's empty arms
+    // ~38 cm from their standing place, which read as one of its animations for as long as he stayed down. A change of
+    // stance now starts the usual place again (learnt afresh 0.5 s later, hands tracked meanwhile).
+    static bool s_cr;
+    static DWORD s_crT;
+    const bool cr = EngineCrouched();
+    if (cr != s_cr || fresh) s_cr = cr, s_crT = now ? now : 1;
+    if (s_crT && now - s_crT < 500) {
+        s_have = false, s_anim = false, s_away = 0;
+        return false;
+    }
     float ih[16];
     if (!InvRigid((const float *)(bones + 83 * kEntry + 0x10), ih)) return s_anim;
     float cur[2][3], dev = 0;
@@ -768,11 +786,16 @@ static bool EmptyGameAnim(BYTE *bones, int n) {
     if (!s_anim) {
         s_away = dev > g_emptyAway ? s_away + 1 : 0;
         if (s_away >= 3) {
-            s_anim = true, s_calmT = 0, s_animT = now;
+            s_anim = true, s_calmT = 0, s_animT = now, s_refDev = dev, s_steadyT = now;
             if (s_logs < 40) ++s_logs, Log("hands: no weapon: the game moved its own arms %.0f cm from where they usually sit: its own arms shown", dev * 100);
         } else if (dev < g_emptyAway * 0.5f)  // the usual place follows slowly (about 2 s), never during an animation
             for (int h = 0; h < 2; ++h)
                 for (int k = 0; k < 3; ++k) s_base[h][k] += (cur[h][k] - s_base[h][k]) * 0.008f;
+    } else if (s_anim && (fabsf(dev - s_refDev) > 0.03f ? (s_refDev = dev, s_steadyT = now, false) : now - s_steadyT > 2000)) {
+        // settle1: "away" but not moving for 2 s is not one of the game's animations (those move: patting out flames):
+        // the arms have a new usual place. Learnt again; hands on the controllers.
+        s_anim = false, s_away = 0, s_have = false;
+        if (s_logs < 40) ++s_logs, Log("hands: no weapon: the game's arms stayed %.0f cm away without moving for 2 s: a new usual place, hands on the controllers again", dev * 100);
     } else if (dev < g_emptyAway * 0.5f) {
         if (!s_calmT) s_calmT = now;
         if (now - s_calmT > 400) {
@@ -1604,7 +1627,9 @@ bool HandsEmptyWanted() {
     if (!g_openSect && EngineInputBase() == 0xe2e5f03d)
         g_openSect = true, Log("hands: the opening on-foot section: empty hands follow the controllers until the first gun");
     if (!g_openSect && !g_emptyAnywhere) return false;  // emptyhands5: anywhere, unless switched back to the opening only
-    return (im == 0xe35e00df || im == 0xe2e5f03d) && EngineOnFoot() && !EngineInVehicle() && !EngineCutscene() && !GamePaused();
+    // emptyhand6 (DrGonzaga 24 Nov, bd146 log 12:37: "I couldn't control my hands - can I control my hands for that section"):
+    // c5455f40 is the story mode with the weapons put away (walking about, no gun to take); hands tracked there too.
+    return (im == 0xe35e00df || im == 0xe2e5f03d || im == 0xc5455f40) && EngineOnFoot() && !EngineInVehicle() && !EngineCutscene() && !GamePaused();
 }
 void HandsFrameEmpty(BYTE *attComp, BYTE *playerEnt) {
     if (IsBadReadPtr(playerEnt + 0x20, 64)) return;

@@ -27,3 +27,5 @@ vr.LeftHanded=0
 # autores1 (bd135, DrGonzaga 23 Nov): no fixed render size; the mod uses the headset's recommended size x1.0
 -render.Width
 -render.Height
+# v0.72 (DrGonzaga 24 Nov): the release ships the headset's recommended size x1.0, whatever his own scale
+-render.AutoScale

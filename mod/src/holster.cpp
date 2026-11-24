@@ -84,6 +84,7 @@ const int kWristKind[4] = {0, 2, 1, 3};    // wrist icon -> chest kind (grenade,
 bool g_heart = true;
 int g_heartBtn = 0;                        // 0 D-pad left, 1 right, 2 up, 3 down
 bool g_heartHeld;                          // input thread
+bool g_heartBtnHeld;  // heartbtn2: the game's own heart button held for the grip
 volatile LONG g_heartPress;                // the game's throw is pressed until this tick (0 none)
 // heart2 (DrGonzaga 15 Nov: "we ... were able to make it the grenade model in hand. Can we do this?"): the heart
 // is one of the game's throwables ("Lurer" in its catalogue, beside Frag_Grenade, Molotov and Rock), so it
@@ -135,7 +136,13 @@ void __attribute__((thiscall)) GadgetActivate(void *self, void *user) {
     g_gStrat = self, g_gUser = user, g_gStratT = GetTickCount();
     g_gActivate(self, user);
 }
+volatile DWORD g_heartLetGoT, g_heartTakeT;  // heartlog1: when the held heart's grip was let go / it was taken
 void __attribute__((thiscall)) GadgetFire(void *self, void *user) {
+    if (DWORD lg = g_heartLetGoT) {  // heartlog1 (beta feedback 23 Nov: "a delay when throwing the cyberheart")
+        g_heartLetGoT = 0;
+        DWORD now = GetTickCount();
+        if (now - lg < 5000) Log("holster: cyber heart left the hand %lu ms after the grip was let go (held %lu ms)", now - lg, lg - g_heartTakeT);
+    }
     LONG u = g_abortUntil;
     if (u && (LONG)((DWORD)u - GetTickCount()) > 0 && self == g_gStrat) return;  // being put away: no throw
     g_gFire(self, user);
@@ -659,6 +666,7 @@ void HolsterInput(const VrPad &p) {
     if (!active) {
         if (g_throwing) g_throwing = false, InterlockedExchange(&g_throwHold, 0);
         g_nade = 0, g_heartHeld = false;
+        if (g_heartBtnHeld) g_heartBtnHeld = false, InterlockedExchange(&g_heartPress, 0);  // heartbtn2: not left held
         // wrist1m: with the debug menu open the wrist menu still shows (to set it up), nothing to grab
         float wc[6][3];
         bool seen = false;
@@ -669,7 +677,7 @@ void HolsterInput(const VrPad &p) {
         return;
     }
     if (g_heartHeld && g_heartModel) {  // heart2: the game holds it; letting go throws
-        if (!g_throwing) { g_heartHeld = false; g_heartRestoreT = now + 300; return; }  // none owned
+        if (!g_throwing && !g_heartBtnHeld) { g_heartHeld = false; g_heartRestoreT = now + 300; return; }  // none owned
         if (!release) return;
         g_heartHeld = false, g_throwing = false, g_nadeEndT = now;
         if (spot >= 11 && g_gAbort) {  // heart3: let go on the wrist menu: put back
@@ -678,6 +686,21 @@ void HolsterInput(const VrPad &p) {
             g_heartRestoreT = now + 2000;
             InterlockedExchange(&g_buzzReq, 1);
             snprintf(g_last, sizeof g_last, "cyber heart put back");
+            return;
+        }
+        if (g_heartBtnHeld) {  // heartbtn2: the game's own heart button is held: letting go throws, as in the game
+            g_heartBtnHeld = false;
+            DWORD e3 = now + 30;
+            float d3[3], s3 = 0;
+            if (g_physThrow && SwingDir(d3, &s3) && s3 >= g_throwSpeed) {  // along the swing: the look follows it a moment first
+                DWORD e2 = now + (DWORD)(g_throwTurn * 1000);
+                if ((LONG)(e2 - e3) > 0) e3 = e2;
+                memcpy((void *)g_throwDir, d3, 12);
+                InterlockedExchange(&g_throwAimUntil, (LONG)(e3 + 80));
+            }
+            InterlockedExchange(&g_heartPress, (LONG)e3);
+            snprintf(g_last, sizeof g_last, "cyber heart thrown");
+            Log("holster: cyber heart thrown with the game's own heart button (let go in %ld ms)", (long)(e3 - now));
             return;
         }
         DWORD end = g_throwPressT + 400;
@@ -690,7 +713,9 @@ void HolsterInput(const VrPad &p) {
         }
         InterlockedExchange(&g_throwHold, (LONG)((LONG)(end - now) > 0 ? end : now));
         g_heartRestoreT = end + 1500;
-        Log("holster: cyber heart thrown (the game's own)");
+        g_heartLetGoT = now ? now : 1;  // heartlog1
+        Log("holster: cyber heart thrown (the game's own; throw let go in %ld ms%s)", (long)((LONG)(end - now) > 0 ? end - now : 0),
+            (LONG)(g_throwAimUntil - now) > 0 ? ", along the swing" : "");
         return;
     }
     if (g_heartHeld) {  // heart1: in the hand until the grip is let go
@@ -729,6 +754,16 @@ void HolsterInput(const VrPad &p) {
     if (press && spot == 15) {
         g_heartHeld = true;
         InterlockedExchange(&g_buzzReq, 1);
+        if (g_heartModel && g_have[0] == 0 && g_have[2] == 0) {
+            // heartbtn3 (DrGonzaga 24 Nov: bd152 threw grenades about three times in four: the game's throw is slower than
+            // bd152's 0.3 s wait, so the grenade it had started went). The game's own throw only does nothing when there
+            // is no grenade or molotov to throw (bd150 log 13:41: rocks only), so only then, from the grab, its own heart
+            // button is held for as long as the grip is; letting go throws, as in the game.
+            g_heartBtnHeld = true, g_heartRestoreT = 0, g_heartTakeT = now;
+            InterlockedExchange(&g_heartPress, (LONG)(now + 600000));
+            Log("holster: cyber heart taken from the wrist menu (no grenade or molotov: the game's own heart button held)");
+            return;
+        }
         if (g_heartModel) {  // heart2: the game's own heart, as its grenade
             g_heartPrev = -1, g_heartRestoreT = 0;  // heart4: the grenade / molotov choice is not touched any more
             InterlockedExchange(&g_heartTook, 0);
@@ -736,6 +771,7 @@ void HolsterInput(const VrPad &p) {
             InterlockedExchange(&g_req, 24);
             g_throwing = true, g_throwPressT = now;
             InterlockedExchange(&g_throwHold, (LONG)(now + 600000));
+            g_heartTakeT = now;  // heartlog1
         }
         Log("holster: cyber heart taken from the wrist menu (%s)", g_heartModel ? "the game's own, its throw held" : "icon in the hand");
         return;

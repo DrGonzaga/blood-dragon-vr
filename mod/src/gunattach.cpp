@@ -45,6 +45,9 @@ float g_gunDrawn[16];
 // kick2: the pose as drawn (with the hip recoil), for the gun's own attachments
 volatile LONG g_gunKids, g_gunKidsFixed;
 float g_restDev, g_restDevMax;  // melee1
+volatile float g_gameGunDev;  // chargeglass2
+volatile DWORD g_gameGunDevT;
+volatile bool g_singleShot;  // chargeglass1/3: the scoped rifle (DLC_BD_VIPER) without its RELOADKIT is bolt action
 volatile LONG g_moved, g_placed, g_shifted, g_fresh, g_noCam, g_noGun, g_noHand, g_rotKept, g_rotRewritten;
 volatile bool g_relearn;
 float g_camGap;  // largest camera object vs rendered camera distance (log)
@@ -693,6 +696,9 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
             TypeIni(false, g_name);
             strcpy(g_optic, "iron");  // sight2: until the gun's own parts are looked at
             SightIni(false);
+            // chargeglass3: the scoped rifle is DLC_BD_VIPER; un-upgraded it is bolt action (no RELOADKIT). Set here on every
+            // gun change so it can't carry over from another gun; ScanOptic refines it once the gun's parts are read.
+            g_singleShot = !strncmp(g_turned, "DLC_BD_VIPER", 12);
         }
         // A saved turn for this weapon is used straight away (same every
         // session); "Re-learn gun" learns it again and saves the new one.
@@ -773,6 +779,14 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
             g_restDev = dev;
             if (dev > g_restDevMax) g_restDevMax = dev;
         }
+    }
+    // chargeglass2 (DrGonzaga 24 Nov, bd157: "it worked, then I reloaded, moved a bit, then it stopped working"): how far the
+    // game's own gun turn (its animation: charging, reloading) is from the learnt rest turn, every frame the game wrote it.
+    if (memcmp(M, s_wrote, 64)) {
+        float dev = 0;
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) dev = fmaxf(dev, fabsf(Dot(M + 4 * i, G + 4 * j) - s_rel[i * 3 + j]));
+        g_gameGunDev = dev, g_gameGunDevT = GetTickCount();
     }
     // roll1 check: is the turn we wrote last time still there (game draws our
     // turn), or did the game write its own (then roll and muzzle come from it)?
@@ -879,6 +893,7 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
     }
     memcpy(s_wrote, M, 64);
     memcpy(g_gunDrawn, M, 64);
+    GunAttachGlueTick(gunEnt);  // glue1
     memcpy(g_bowCam, cam, 12), memcpy(g_bowRel, s_rel, 36), g_bowCamOk = true;  // bow2p
     if (BowOut()) {  // string10: where the right hand is on the string's path, for this frame's bow pose
         float RF[9], rhw[3];
@@ -1332,6 +1347,9 @@ void SightIni(bool save) {
     snprintf(g_sightKey, sizeof g_sightKey, "%s", g_turned);  // pergun1
 }
 // Game thread, from the gun's own attachment update, at most twice a second.
+// g_singleShot: declared near the top (chargeglass3)
+
+
 void ScanOptic(BYTE *comp) {
     int n = *(int *)(comp + 0x30);
     BYTE **kids = *(BYTE ***)(comp + 0x2c);
@@ -1357,6 +1375,10 @@ void ScanOptic(BYTE *comp) {
             snprintf(found, sizeof found, "%s", b[0] ? b : nm);
         }
     }
+    // chargeglass1 (DrGonzaga 24 Nov: on a new game the Kobracon "hasn't been upgraded yet ... after every bullet, it plays a
+    // charging animation that moves the rifle"): the upgraded ones all carry DLC_BD_CALICO_FULLAUTO (logs 18-24 Nov).
+    // chargeglass3 (bd158 log): the scoped rifle is DLC_BD_VIPER, and its upgrade kit DLC_BD_VIPER_RELOADKIT gives the magazine.
+    g_singleShot = !strncmp(g_turned, "DLC_BD_VIPER", 12) && !strstr(all, "RELOADKIT");
     static char s_all[256];
     if (strcmp(all, s_all)) {
         strcpy(s_all, all);
@@ -1498,3 +1520,131 @@ bool GunAttachPose(float m[16]) {
     return true;
 }
 
+
+bool GunAttachSingleShot() { return g_singleShot; }  // chargeglass1
+float GunAttachGameGunDev() { return GetTickCount() - g_gameGunDevT < 250 ? g_gameGunDev : 0; }  // chargeglass2
+
+// glue1 (DrGonzaga 24 Nov: "Do away with the timers altogether, and have the eyebox glued to the gun model somehow? through
+// the animation?"): the bolt-action rifle's own bone table (the same table the bow's string uses: entries of 0x90 at the
+// model part's +0x80, "matrix out" in model space at +0x50) is read every frame. Its pose at rest is noted while nothing is
+// happening (no shot for 4 s, no reload press for 6 s, held 3 s); the rifle glass then moves with the bone nearest to it,
+// by how far that bone is from its rest, so it stays on the eyepiece through the bolt and reload animations.
+namespace {
+BYTE *volatile g_glueBones;
+volatile int g_glueN;
+float g_glueRest[32][16];
+volatile bool g_glueRestOk;
+volatile int g_glueBone = -1;
+bool g_glueOn = true;  // [scope] ChargeGlue
+inline float D3(const float *a, const float *b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+// q (model space) taken from rest bone R0 to the bone now R1 (rows = axes, [12..14] = position).
+void GlueMove(const float *R0, const float *R1, const float *q, float *o, bool point) {
+    float d[3], l[3];
+    for (int k = 0; k < 3; ++k) d[k] = q[k] - (point ? R0[12 + k] : 0);
+    for (int j = 0; j < 3; ++j) {
+        float r2 = D3(R0 + 4 * j, R0 + 4 * j);
+        l[j] = r2 > 1e-10f ? D3(d, R0 + 4 * j) / r2 : 0;
+    }
+    for (int k = 0; k < 3; ++k) o[k] = (point ? R1[12 + k] : 0) + l[0] * R1[k] + l[1] * R1[4 + k] + l[2] * R1[8 + k];
+}
+}  // namespace
+
+void GunAttachGlueTick(BYTE *ent) {  // game thread, every placed frame
+    static BYTE *s_ent;
+    static DWORD s_chk, s_since, s_evT;
+    static float s_maxT, s_maxA;
+    static int s_dumps, s_logs;
+    const DWORD now = GetTickCount();
+    if (!g_singleShot || !g_bloodDragon || !ent) {
+        g_glueBones = nullptr, g_glueRestOk = false, s_ent = nullptr;
+        return;
+    }
+    if (ent != s_ent) s_ent = ent, s_since = now, g_glueRestOk = false, g_glueBones = nullptr, s_chk = 0;
+    if (now - s_chk > 500) {
+        s_chk = now;
+        BYTE *comp = BowStringCompBd(ent), *b = nullptr;
+        int n = 0;
+        if (comp && !IsBadReadPtr(comp, 0x90)) {
+            b = *(BYTE **)(comp + 0x80), n = *(int *)(comp + 0x84);
+            if (!b || n < 1 || n > 32 || IsBadReadPtr(b, n * 0x90)) b = nullptr, n = 0;
+        }
+        if (b != g_glueBones || n != g_glueN) {
+            g_glueRestOk = false, g_glueBones = b, g_glueN = n;
+            if (s_dumps < 3) {
+                ++s_dumps;
+                if (!b) Log("scope glue: no bone table on the rifle (%s): the glass uses the timers", g_turned);
+                else {
+                    Log("scope glue: rifle %s has %d bones:", g_turned, n);
+                    for (int i = 0; i < n; ++i) {
+                        const float *m = (const float *)(b + i * 0x90 + 0x50);
+                        Log("scope glue:   bone %d hash %08lx parent %d at (%.3f %.3f %.3f)", i, *(DWORD *)(b + i * 0x90), *(int *)(b + i * 0x90 + 4), m[12], m[13], m[14]);
+                    }
+                }
+            }
+        }
+    }
+    BYTE *b = g_glueBones;
+    const int n = g_glueN;
+    if (!b) return;
+    const DWORD st = InputLastShotT(), xt = InputPadXTime();
+    const bool idle = now - s_since > 3000 && (!st || now - st > 4000) && (!xt || now - xt > 6000);
+    if (idle) {
+        for (int i = 0; i < n; ++i) memcpy(g_glueRest[i], b + i * 0x90 + 0x50, 64);
+        if (!g_glueRestOk) Log("scope glue: %s at rest noted; the glass follows its animation from now", g_turned);
+        g_glueRestOk = true;
+    }
+    // One line per shot / reload (10 in all): how far the bone under the glass moved, to see the glue has something to follow.
+    const DWORD ev = st > xt ? st : xt;
+    const int bi = g_glueBone;
+    if (g_glueRestOk && bi >= 0 && bi < n && ev && now - ev < 4000) {
+        const float *R0 = g_glueRest[bi], *R1 = (const float *)(b + bi * 0x90 + 0x50);
+        float dt[3] = {R1[12] - R0[12], R1[13] - R0[13], R1[14] - R0[14]}, tr = 0;
+        for (int j = 0; j < 3; ++j) tr += D3(R0 + 4 * j, R1 + 4 * j) / sqrtf(fmaxf(D3(R0 + 4 * j, R0 + 4 * j) * D3(R1 + 4 * j, R1 + 4 * j), 1e-12f));
+        float c = (tr - 1) * 0.5f;
+        float a = acosf(c > 1 ? 1 : c < -1 ? -1 : c) * 57.29578f, t = sqrtf(D3(dt, dt));
+        s_evT = ev, s_maxT = fmaxf(s_maxT, t), s_maxA = fmaxf(s_maxA, a);
+    } else if (s_evT && now - s_evT >= 4000) {
+        if (s_logs < 10) ++s_logs, Log("scope glue: after the %s the rifle part under the glass (bone %d) moved up to %.1f cm and %.1f deg", s_evT == st ? "shot" : "reload press", bi, s_maxT * 100, s_maxA);
+        s_evT = 0, s_maxT = s_maxA = 0;
+    }
+}
+
+// Render thread: the rifle glass's middle and axes (world) moved with the rifle's animation. False = nothing to follow.
+bool GunAttachGlue(float C[3], float ax[3][3]) {
+    if (!g_glueOn || !g_singleShot || !g_glueRestOk) return false;
+    BYTE *b = g_glueBones;
+    const int n = g_glueN;
+    if (!b || n < 1 || IsBadReadPtr(b, n * 0x90)) return false;
+    float M[16], l2[3];
+    memcpy(M, g_gunDrawn, 64);
+    for (int j = 0; j < 3; ++j)
+        if ((l2[j] = D3(M + 4 * j, M + 4 * j)) < 1e-10f) return false;
+    float rel[3] = {C[0] - M[12], C[1] - M[13], C[2] - M[14]}, p[3];
+    for (int j = 0; j < 3; ++j) p[j] = D3(rel, M + 4 * j) / l2[j];
+    int best = -1;
+    float bd = 1e9f;
+    for (int i = 0; i < n; ++i) {
+        const float *r = g_glueRest[i] + 12;
+        float d[3] = {r[0] - p[0], r[1] - p[1], r[2] - p[2]}, d2 = D3(d, d);
+        if (d2 < bd) bd = d2, best = i;
+    }
+    if (best < 0) return false;
+    g_glueBone = best;
+    const float *R0 = g_glueRest[best], *R1 = (const float *)(b + best * 0x90 + 0x50);
+    float p2[3];
+    GlueMove(R0, R1, p, p2, true);
+    for (int k = 0; k < 3; ++k) C[k] = M[12 + k] + p2[0] * M[k] + p2[1] * M[4 + k] + p2[2] * M[8 + k];
+    for (int a = 0; a < 3; ++a) {
+        float dm[3], dm2[3];
+        for (int j = 0; j < 3; ++j) dm[j] = D3(ax[a], M + 4 * j) / l2[j];
+        GlueMove(R0, R1, dm, dm2, false);
+        float w[3], l = 0;
+        for (int k = 0; k < 3; ++k) w[k] = dm2[0] * M[k] + dm2[1] * M[4 + k] + dm2[2] * M[8 + k], l += w[k] * w[k];
+        if (l < 1e-12f) return false;
+        l = 1 / sqrtf(l);
+        for (int k = 0; k < 3; ++k) ax[a][k] = w[k] * l;
+    }
+    return true;
+}
+bool *GunAttachGlueOn() { return &g_glueOn; }
+int GunAttachGlueState() { return !g_singleShot ? 0 : !g_glueBones ? 1 : !g_glueRestOk ? 2 : 3; }  // glue1: menu status

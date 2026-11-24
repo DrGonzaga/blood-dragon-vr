@@ -275,6 +275,8 @@ float g_distort = 0.3f;  // lens1: lens distortion strength 0-1 (all guns)
 bool g_square;          // square1: per gun, [scope.<gun>] Square
 float g_scan, g_tint;   // square1: per gun, Scanlines / OrangeTint 0-1
 float g_corner = 0.12f, g_crt, g_fringe = 0.5f;  // square2: per gun, Corner / CrtBend / CrtFringe
+float g_chargeHide = 1.5f;  // chargeglass1: [scope] ChargeHideSeconds
+float g_boltReloadHide = 3.0f;  // boltreload1: [scope] BoltReloadHideSeconds
 // rifle1: per gun, [scope.<gun>] RifleScope, EyeRight, EyeUp, EyeForward, GlassSize, EyeBox, EyeDistance, EyeRange,
 // rifle2: PictureFill (1 = the picture's edge, with its distortion, square, corners and CRT, meets the glass's edge
 // seen from the best eye distance).
@@ -526,6 +528,14 @@ static void ScopeIni(bool save) {
     g_fringe = GetPrivateProfileStringW(sec, L"CrtFringe", L"", buf, 32, path) ? (float)_wtof(buf) : 0.5f;
     g_rifle = GetPrivateProfileIntW(sec, L"RifleScope", 0, path) != 0;  // rifle1
     g_rifleAuto = GetPrivateProfileIntW(sec, L"RifleAuto", 1, path) != 0;  // autoscope1
+    {   // chargeglass1: [scope] ChargeHideSeconds
+        wchar_t rb[16];
+        GetPrivateProfileStringW(L"scope", L"ChargeHideSeconds", L"1.5", rb, 16, path);
+        g_chargeHide = (float)_wtof(rb);
+        GetPrivateProfileStringW(L"scope", L"BoltReloadHideSeconds", L"3", rb, 16, path);  // boltreload1
+        g_boltReloadHide = (float)_wtof(rb);
+        *GunAttachGlueOn() = GetPrivateProfileIntW(L"scope", L"ChargeGlue", 1, path) != 0;  // glue1
+    }
     g_ltSteady = GetPrivateProfileIntW(sec, L"TriggerSteadyOnly", 1, path) != 0;  // steadyonly1
     {
         float d = GetPrivateProfileStringW(sec, L"AutoZoomDeg", L"", buf, 32, path) ? (float)_wtof(buf) : 20.0f;
@@ -648,10 +658,12 @@ static void RifleEyeCheck() {
     // autoscope2: the turn-on points are per gun now (were fixed: reach 6 cm, sideways 5 cm, 40 deg).
     const float reach = g_rv[8] < 0 ? 0 : g_rv[8], side = g_rv[9] < 0.005f ? 0.005f : g_rv[9];
     const float ang = (g_rv[10] < 5 ? 5 : g_rv[10] > 89 ? 89 : g_rv[10]) * 0.0174533f;
-    const float angOff = ang + 10 * 0.0174533f < 1.57f ? ang + 10 * 0.0174533f : 1.57f;
-    const float reachOff = reach + (reach * 0.25f > 0.04f ? reach * 0.25f : 0.04f);  // generous1: grows with a long reach (gunstock)
+    // tightoff1 (DrGonzaga 24 Nov: "Can we have the scope off be 'tighter'"): the stay-on margins were +10 deg, reach +25% (at
+    // least 4 cm), sideways x1.6; now +4 deg, reach +10% (at least 1.5 cm), sideways x1.25 (the fade covers the edge).
+    const float angOff = ang + 4 * 0.0174533f < 1.57f ? ang + 4 * 0.0174533f : 1.57f;
+    const float reachOff = reach + (reach * 0.10f > 0.015f ? reach * 0.10f : 0.015f);  // generous1: grows with a long reach (gunstock)
     g_eyeNow[0] = relief * 100, g_eyeNow[1] = lat * 100, g_eyeNow[2] = acosf(along < -1 ? -1 : along > 1 ? 1 : along) * 57.29578f;
-    const bool on = was ? relief > -0.02f && relief < far0 + reachOff && lat < side * 1.6f && along > cosf(angOff)
+    const bool on = was ? relief > -0.02f && relief < far0 + reachOff && lat < side * 1.25f && along > cosf(angOff)
                         : relief > 0.0f && relief < far0 + reach && lat < side && along > cosf(ang);
     if (on != was) LogV("scope: rifle scope %s the eye (eye %.1f cm behind the glass, %.1f cm off its axis)", on ? "at" : "away from", relief * 100, lat * 100);
     g_atEye = on, g_atEyeT = GetTickCount();
@@ -680,6 +692,7 @@ static bool RifleLayout(const EngineView &v, const float hand0[3], float tx, flo
     if (kicked) for (int i = 0; i < 3; ++i) hand[i] += bk[i];
     float C[3];
     for (int i = 0; i < 3; ++i) C[i] = hand[i] + ax[0][i] * g_rv[0] + ax[1][i] * g_rv[1] + ax[2][i] * g_rv[2];
+    GunAttachGlue(C, ax);  // glue1: the glass stays on the eyepiece through the rifle's own (bolt / reload) animation
     float nr[3];
     Cross(v.fwd, v.up, nr);
     Norm(nr);
@@ -750,6 +763,26 @@ void ScopeDraw(IDXGISwapChain *sc) {
     float q[4], p[3];
     if (!EngineLastEye(&eye, q, p)) return;
     if (eye == 0 && g_rifle) RifleEyeCheck(), RifleFadeTick();  // autoscope1: is the eyepiece at the eye? fade1
+    if (g_rifle && GunAttachSingleShot() && !(*GunAttachGlueOn() && GunAttachGlueState() == 3)) {  // chargeglass1 (glue1: timers only when the glue cannot follow): the single-shot Kobracon's charging after each shot moves the rifle
+        // chargeglass3: hidden for the set time after each shot (the bolt / charging animation); chargeglass2's
+        // "rifle off its rest" rule removed (it made the glass flash, bd158).
+        static DWORD s_shotSeen;
+        static int s_logs;
+        const DWORD st = InputLastShotT(), now = GetTickCount();
+        if (st != s_shotSeen) {
+            s_shotSeen = st;
+            if (st && s_logs < 20) ++s_logs, Log("scope: single-shot rifle: shot: glass hidden %.1f s", g_chargeHide);
+        }
+        if (st && now - st < (DWORD)(g_chargeHide * 1000)) return;
+        // boltreload1 (DrGonzaga 24 Nov: "a timer for reload? Just for this gun at this setup"): the game's X (reload) press
+        static DWORD s_xSeen;
+        const DWORD xt = InputPadXTime();
+        if (xt != s_xSeen) {
+            s_xSeen = xt;
+            if (xt && s_logs < 20) ++s_logs, Log("scope: single-shot rifle: reload press: glass hidden %.1f s", g_boltReloadHide);
+        }
+        if (xt && now - xt < (DWORD)(g_boltReloadHide * 1000)) return;
+    }
     const bool active = EngineScopePictureActive() && (eye == 0 || (eye == 1 && EngineScopeEye() == 2));  // pip1: both eyes
     // rifle1: "Show the glass" (menu): the eyepiece shows (black) without aiming, to line it up with the gun's scope.
     const bool glassOnly = !active && g_rifle && g_rifleShow && (eye == 0 || eye == 1) && !EngineFlat() && EngineOnFoot();
@@ -871,3 +904,6 @@ void ScopeDraw(IDXGISwapChain *sc) {
         Log("scope: lens drawn (game zoom %.1f deg, lens %.0f deg wide = %.1fx, %ld copies)", EngineScopeFov() * 57.2958f,
             g_size * 2, g_size * 2 * (g_zoom < 1 ? 1 : g_zoom) / (EngineScopeFov() * 57.2958f + 1e-3f), g_copies);
 }
+
+float *ScopeChargeHide() { return &g_chargeHide; }  // chargeglass1
+float *ScopeBoltReloadHide() { return &g_boltReloadHide; }  // boltreload1

@@ -166,7 +166,39 @@ static bool LibraryPathFromJson(const wchar_t *jsonPath, wchar_t *out, DWORD len
     return true;
 }
 
+// xrloader1 (beta feedback 23 Nov: "an option to initialize OpenXR through the 32-bit Khronos loader ... so it can
+// discover and enable API layers, including layers selected with XR_ENABLE_API_LAYERS"): [vr] OpenXrLoader=1 makes
+// the instance through openxr_loader.dll (next to the mod, else Windows' search path) instead of talking to the
+// runtime directly. The loader finds the same 32-bit active runtime (VDXR etc.) and adds any 32-bit API layers.
+// Off by default; if the loader can't be loaded the mod goes to the runtime directly as before.
+static bool LoadKhronosLoader() {
+    wchar_t ini[MAX_PATH];
+    IniPath(ini);
+    if (!GetPrivateProfileIntW(L"vr", L"OpenXrLoader", 0, ini)) return false;
+    wchar_t path[MAX_PATH];
+    wcscpy(path, ini);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    wcscpy(slash ? slash + 1 : path, L"openxr_loader.dll");
+    HMODULE ld = LoadLibraryW(path);
+    if (!ld) ld = LoadLibraryW(L"openxr_loader.dll"), wcscpy(path, L"openxr_loader.dll (search path)");
+    if (!ld) {
+        Log("XR: [vr] OpenXrLoader=1 but no 32-bit openxr_loader.dll was found (put it in the game's bin folder); using the runtime directly");
+        return false;
+    }
+    auto gipa = (PFN_xrGetInstanceProcAddr)GetProcAddress(ld, "xrGetInstanceProcAddr");
+    if (!gipa) {
+        Log("XR: %ls has no xrGetInstanceProcAddr; using the runtime directly", path);
+        return false;
+    }
+    g_gipa = gipa;
+    char layers[512] = "";
+    GetEnvironmentVariableA("XR_ENABLE_API_LAYERS", layers, sizeof layers);
+    Log("XR: using the Khronos OpenXR loader %ls (API layers on%s%s)", path, layers[0] ? "; XR_ENABLE_API_LAYERS=" : "", layers);
+    return true;
+}
+
 static bool LoadRuntime() {
+    if (LoadKhronosLoader()) return true;  // xrloader1
     wchar_t json[MAX_PATH], lib[MAX_PATH];
     if (!ReadActiveRuntimeJson(json, MAX_PATH)) {
         Log("XR: no 32-bit OpenXR runtime registered");
@@ -209,7 +241,7 @@ static bool LoadRuntime() {
 // One action per control; the game sees them as an Xbox pad (input.cpp).
 
 enum {
-    kA, kB, kX, kY, kMenu, kLStickClick, kRStickClick,  // booleans
+    kA, kB, kX, kY, kMenu, kLStickClick, kRStickClick, kLRest, kRRest,  // booleans (rest1: thumbrest touch)
     kBoolCount
 };
 enum { kLTrigger, kRTrigger, kLGrip, kRGrip, kFloatCount };
@@ -219,6 +251,8 @@ static XrAction g_boolActs[kBoolCount], g_floatActs[kFloatCount], g_vecActs[kVec
 static XrPath g_hands[2];
 static XrSpace g_aimSpace[2];
 static bool g_controlsAttached;
+static bool g_restBound;  // rest1
+bool XrThumbrestsBound() { return g_restBound; }
 
 static VrPad g_pads[2];
 static volatile LONG g_padIdx = -1;
@@ -251,7 +285,7 @@ static bool ControlsCreate() {
     g_hands[0] = Path("/user/hand/left");
     g_hands[1] = Path("/user/hand/right");
 
-    static const char *boolNames[kBoolCount] = {"a", "b", "x", "y", "menu", "lstick_click", "rstick_click"};
+    static const char *boolNames[kBoolCount] = {"a", "b", "x", "y", "menu", "lstick_click", "rstick_click", "lthumbrest", "rthumbrest"};
     static const char *floatNames[kFloatCount] = {"ltrigger", "rtrigger", "lgrip", "rgrip"};
     static const char *vecNames[kVecCount] = {"lstick", "rstick"};
     for (int i = 0; i < kBoolCount; ++i)
@@ -281,6 +315,10 @@ static bool ControlsCreate() {
         {g_aimAct, "/user/hand/right/input/aim/pose"},
         {g_hapticAct, "/user/hand/left/output/haptic"},
         {g_hapticAct, "/user/hand/right/output/haptic"},
+        // rest1 (DrGonzaga 23 Nov: "add the option for thumbrests (L and R) when selecting buttons"): touch only. Kept last,
+        // so if a runtime refuses these two paths the rest are suggested again without them.
+        {g_boolActs[kLRest], "/user/hand/left/input/thumbrest/touch"},
+        {g_boolActs[kRRest], "/user/hand/right/input/thumbrest/touch"},
     };
     XrActionSuggestedBinding sb[sizeof b / sizeof b[0]];
     for (size_t i = 0; i < sizeof b / sizeof b[0]; ++i) sb[i] = {b[i].a, Path(b[i].path)};
@@ -288,6 +326,13 @@ static bool ControlsCreate() {
     ps.interactionProfile = Path("/interaction_profiles/oculus/touch_controller");
     ps.countSuggestedBindings = sizeof sb / sizeof sb[0];
     ps.suggestedBindings = sb;
+    if (XR_SUCCEEDED(p_xrSuggestInteractionProfileBindings(g_instance, &ps))) {
+        g_restBound = true;
+        Log("XR: controller bindings suggested (with the thumbrests)");
+        return true;
+    }
+    ps.countSuggestedBindings -= 2;  // rest1: without the thumbrests
+    Log("XR: the runtime refused the thumbrest bindings; controls without them");
     return Check(p_xrSuggestInteractionProfileBindings(g_instance, &ps), "controller bindings");
 }
 
@@ -352,6 +397,7 @@ static void HapticsUpdate() {
         float hb = h == 1 ? buzz : BowBuzzLeft();
         if (TwoHandSteadyBuzz() > hb) hb = TwoHandSteadyBuzz();  // steadybuzz1
         if (HandsBuzz() > hb) hb = HandsBuzz();  // capture2
+        if (MountBuzz() > hb) hb = MountBuzz();  // mount1: the cheek point countdown
         if (SlowmoBuzz() > hb) hb = SlowmoBuzz();  // slowbtn1: both hands, as slow motion starts and ends
         if (SlowFxBuzz() > hb) hb = SlowFxBuzz();  // slowfx1: the heartbeat while it is on
         if (h == 0 && CyberEyeBuzz() > hb) hb = CyberEyeBuzz();  // cybereye1  // bowfeel2: the nock tick in the bow hand too
@@ -395,6 +441,7 @@ static void ControlsUpdate() {
     p.x = GetBool(g_boolActs[kX]), p.y = GetBool(g_boolActs[kY]);
     p.menu = GetBool(g_boolActs[kMenu]);
     p.lclick = GetBool(g_boolActs[kLStickClick]), p.rclick = GetBool(g_boolActs[kRStickClick]);
+    p.lrest = GetBool(g_boolActs[kLRest]), p.rrest = GetBool(g_boolActs[kRRest]);  // rest1
     const bool lefty = g_leftHanded;  // lefty1: read once, so a frame is all one way
 
     for (int h = 0; h < 2; ++h) {
@@ -416,9 +463,15 @@ static void ControlsUpdate() {
         auto sw = [](float &a, float &b) { float t = a; a = b; b = t; };
         auto swb = [](bool &a, bool &b) { bool t = a; a = b; b = t; };
         sw(p.lx, p.rx), sw(p.ly, p.ry), sw(p.lt, p.rt), sw(p.lgrip, p.rgrip);
-        swb(p.a, p.x), swb(p.b, p.y), swb(p.lclick, p.rclick), swb(p.handValid[0], p.handValid[1]);
+        swb(p.a, p.x), swb(p.b, p.y), swb(p.lclick, p.rclick), swb(p.lrest, p.rrest), swb(p.handValid[0], p.handValid[1]);
         for (int i = 0; i < 4; ++i) sw(p.handQ[0][i], p.handQ[1][i]);
         for (int i = 0; i < 3; ++i) sw(p.handP[0][i], p.handP[1][i]);
+    }
+    // swapstick1 (controls revamp): walk with the gun hand's stick, turn with the other. Only the sticks move; the
+    // clicks stay on their own controllers (bindable on the Controls page).
+    if (*InputSwapSticks()) {
+        float t = p.lx; p.lx = p.rx, p.rx = t;
+        t = p.ly; p.ly = p.ry, p.ry = t;
     }
     LONG next = g_padIdx < 0 ? 0 : 1 - g_padIdx;
     g_pads[next] = p;

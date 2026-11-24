@@ -37,7 +37,10 @@ typedef void(__stdcall *DestroyFn)(void *);
 typedef HRESULT(__stdcall *SubmitFn)(void *, const XaBuffer *, const void *);
 typedef void(__stdcall *StateFn)(void *, XaState *);
 typedef HRESULT(__stdcall *SetFreqFn)(void *, float, UINT32);
-enum { kCreate = 8, kDestroy = 18, kSubmit = 21, kState = 25, kSetFreq = 26 };  // XAudio2 2.7 (checked against the SDK header's tables)
+typedef HRESULT(__stdcall *SetVolFn)(void *, float, UINT32);
+// vol1 (beta feedback 23 Nov: volume controls in the VR menu): IXAudio2Voice::SetVolume is slot 12. The game's own
+// volume for each voice is kept and multiplied by ours: master x (effects, or music and speech for streamed voices).
+enum { kCreate = 8, kSetVol = 12, kDestroy = 18, kSubmit = 21, kState = 25, kSetFreq = 26 };  // XAudio2 2.7 (checked against the SDK header's tables)
 const UINT32 kNoPitch = 0x0002, kEndOfStream = 0x0040;
 
 bool g_on = true;      // [slowsnd] On
@@ -49,6 +52,9 @@ DestroyFn g_destroy;
 SubmitFn g_submit;
 StateFn g_state;
 SetFreqFn g_setFreq;
+SetVolFn g_setVol;
+float g_volMaster = 1, g_volFx = 1, g_volStream = 1;  // vol1: [sound] Master, Effects, MusicSpeech (0..1)
+volatile LONG g_volEpoch;                             // vol1: bumped when a volume slider moves
 void **g_voiceVt;
 volatile LONG g_hooked;  // 0 no, 1 the engine's table, 2 the voices' table too
 CRITICAL_SECTION g_tab, g_life;
@@ -59,6 +65,8 @@ struct Voice {
     float applied;  // the multiplier in force
     bool stream;    // sound arriving in queued pieces (music, speech)
     bool loop;
+    float gameVol;  // vol1: the volume the game asked for
+    float vol;      // vol1: our multiplier in force
 };
 enum { kMax = 768 };
 Voice g_v[kMax];
@@ -73,6 +81,7 @@ Voice *Find(void *v) {
         if (g_v[i].v == v) return &g_v[i];
     return nullptr;
 }
+float VolMult(const Voice &e) { return g_volMaster * (e.stream ? g_volStream : g_volFx); }  // vol1
 float Mult(const Voice &e) {
     float f = g_factor;
     if (!g_on || f > 0.995f) return 1;
@@ -95,10 +104,17 @@ HRESULT __stdcall HSetFreq(void *self, float ratio, UINT32 opset) {
     LeaveCriticalSection(&g_tab);
     return g_setFreq(self, ratio * m, opset);
 }
+HRESULT __stdcall HSetVol(void *self, float v, UINT32 opset) {  // vol1
+    float m = 1;
+    EnterCriticalSection(&g_tab);
+    if (Voice *e = Find(self)) e->gameVol = v, m = e->vol = VolMult(*e);
+    LeaveCriticalSection(&g_tab);
+    return g_setVol(self, v * m, opset);
+}
 HRESULT __stdcall HSubmit(void *self, const XaBuffer *b, const void *wma) {
     XaState st = {};
     g_state(self, &st);
-    float set = 0;
+    float set = 0, vset = -1;
     EnterCriticalSection(&g_tab);
     ++g_submits;
     if (Voice *e = Find(self)) {
@@ -107,8 +123,11 @@ HRESULT __stdcall HSubmit(void *self, const XaBuffer *b, const void *wma) {
         else if (!loop) e->stream = true, ++g_streamSubmits;         // another piece behind the last: streamed
         float m = Mult(*e);
         if (fabsf(m - e->applied) > 0.004f) e->applied = m, set = e->game * m;
+        float vm = VolMult(*e);  // vol1: effects and music / speech can have their own volume
+        if (fabsf(vm - e->vol) > 0.004f) e->vol = vm, vset = e->gameVol * vm;
     }
     LeaveCriticalSection(&g_tab);
+    if (vset >= 0 && g_setVol) g_setVol(self, vset, 0);
     if (set > 0) {
         if (FAILED(g_setFreq(self, set, 0))) InterlockedIncrement(&g_fail);
         InterlockedIncrement(&g_ourSets);
@@ -123,14 +142,16 @@ HRESULT __stdcall HCreate(void *self, void **ppVoice, const WAVEFORMATEX *fmt, U
     if (InterlockedCompareExchange(&g_hooked, 2, 1) == 1) {
         g_voiceVt = vt;
         g_destroy = (DestroyFn)vt[kDestroy], g_submit = (SubmitFn)vt[kSubmit], g_state = (StateFn)vt[kState], g_setFreq = (SetFreqFn)vt[kSetFreq];
-        void *hd = (void *)HDestroy, *hs = (void *)HSubmit, *hf = (void *)HSetFreq;
+        g_setVol = (SetVolFn)vt[kSetVol];
+        void *hd = (void *)HDestroy, *hs = (void *)HSubmit, *hf = (void *)HSetFreq, *hv = (void *)HSetVol;
         bool ok = PatchBytes(&vt[kDestroy], &hd, 4) && PatchBytes(&vt[kSubmit], &hs, 4) && PatchBytes(&vt[kSetFreq], &hf, 4);
+        if (ok && !PatchBytes(&vt[kSetVol], &hv, 4)) Log("slowsnd: volume hook NOT in: the VR menu's volume sliders won't work");
         Log("slowsnd: the game's first sound voice made (%u Hz, %u channel(s), format %u, flags %lx); its table %s", fmt ? (unsigned)fmt->nSamplesPerSec : 0,
             fmt ? (unsigned)fmt->nChannels : 0, fmt ? (unsigned)fmt->wFormatTag : 0, (unsigned long)flags, ok ? "hooked" : "NOT hooked: sounds stay as they are");
     }
     if (vt == g_voiceVt) {
         EnterCriticalSection(&g_tab);
-        if (g_n < kMax) g_v[g_n++] = Voice{*ppVoice, 1, 1, false, false};
+        if (g_n < kMax) g_v[g_n++] = Voice{*ppVoice, 1, 1, false, false, 1, 1};
         else ++g_full;
         ++g_made;
         LeaveCriticalSection(&g_tab);
@@ -199,6 +220,27 @@ void SlowSndLoad() {
     g_amount = a < 0 ? 0 : a > 1 ? 1 : a;
 }
 void SlowSndSave() { SaveF(L"On", g_on ? 1.f : 0.f), SaveF(L"Mode", (float)g_mode), SaveF(L"Amount", g_amount); }
+// vol1: [sound] Master / Effects / MusicSpeech, 0..1 (1 = the game's own volume)
+static float Clamp01(float v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+void SoundVolLoad() {
+    wchar_t path[MAX_PATH], buf[32];
+    IniPath(path);
+    float *v[3] = {&g_volMaster, &g_volFx, &g_volStream};
+    const wchar_t *k[3] = {L"Master", L"Effects", L"MusicSpeech"};
+    for (int i = 0; i < 3; ++i)
+        *v[i] = 1;  // vol1 sliders removed 24 Nov: always the game's own level (an old saved value is ignored)
+    (void)buf, (void)k, (void)Clamp01;
+    InterlockedIncrement(&g_volEpoch);
+}
+void SoundVolSave() {
+    wchar_t path[MAX_PATH], buf[32];
+    IniPath(path);
+    float v[3] = {g_volMaster, g_volFx, g_volStream};
+    const wchar_t *k[3] = {L"Master", L"Effects", L"MusicSpeech"};
+    for (int i = 0; i < 3; ++i) swprintf(buf, 32, L"%.2f", v[i]), WritePrivateProfileStringW(L"sound", k[i], buf, path);
+}
+float *SoundVol(int i) { return i == 0 ? &g_volMaster : i == 1 ? &g_volFx : &g_volStream; }
+void SoundVolChanged() { InterlockedIncrement(&g_volEpoch); }
 bool *SlowSndOn() { return &g_on; }
 int *SlowSndMode() { return &g_mode; }
 float *SlowSndAmount() { return &g_amount; }
@@ -229,6 +271,21 @@ void SlowSndTick(float speed) {
             if (FAILED(g_setFreq(s_set[i].v, s_set[i].r, 0))) InterlockedIncrement(&g_fail);
             InterlockedIncrement(&g_ourSets);
         }
+        LeaveCriticalSection(&g_life);
+    }
+    static LONG s_volEp = -1;  // vol1: a volume slider moved: every voice gets the new volume
+    if (g_volEpoch != s_volEp && g_setVol) {
+        s_volEp = g_volEpoch;
+        EnterCriticalSection(&g_life);
+        static struct { void *v; float r; } s_vs[kMax];
+        int n = 0;
+        EnterCriticalSection(&g_tab);
+        for (int i = 0; i < g_n; ++i) {
+            float vm = VolMult(g_v[i]);
+            if (fabsf(vm - g_v[i].vol) > 0.004f) g_v[i].vol = vm, s_vs[n].v = g_v[i].v, s_vs[n++].r = g_v[i].gameVol * vm;
+        }
+        LeaveCriticalSection(&g_tab);
+        for (int i = 0; i < n; ++i) g_setVol(s_vs[i].v, s_vs[i].r, 0);
         LeaveCriticalSection(&g_life);
     }
     if ((f < 0.995f && now - g_logT > 10000) || (!g_logT && g_made > 0)) {  // what was seen, while it matters

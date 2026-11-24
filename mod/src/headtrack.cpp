@@ -180,8 +180,151 @@ bool HeadtrackHandRaw(int hand, float m[16], float off[3]) {
     }
     return true;
 }
+// mount1 (DrGonzaga 24 Nov: "a 'rotate gun' option for gunstock ... aim, laser, reticle, and where the sight is positioned
+// on the gun, are all dependent on the current alignment"): a stock mount angle. Everything aimed (the game's look, the
+// shots, beam, dot, sight window, rifle glass and eye check, scope camera, kick, the gun model) is built from
+// HeadtrackHand(1), so one fixed turn here moves them all together; each gun's own place and angle stay as tuned on top.
+// The turn is about the cheek point (where the eye sits on the stock, in the controller's own axes: x right, y up,
+// z back), so the sight line still runs through the eye and every eyepiece stays at it. Default cheek point: from the
+// first rifle-scoped gun in the ini (its eyepiece minus the eye distance); "Learn my cheek point" in the VR menu sets
+// it by hand (6 s countdown). Both angles 0 = nothing here runs. [aim] StockMountPitch / StockMountYaw (degrees, front
+// up / front right), StockCheekRight / StockCheekUp / StockCheekBack (m, only once learnt).
+static float g_mount[2];
+static float g_cheekLearnt[3], g_cheekRifle[3];
+static bool g_haveLearnt, g_haveRifle, g_mountLoaded;
+static char g_cheekGun[64];
+static volatile DWORD g_cheekCapAt, g_cheekBuzzUntil;
+static volatile LONG g_cheekCapOn;
+static char g_cheekMsg[160];
+static void MountLoad() {
+    if (g_mountLoaded) return;
+    g_mountLoaded = true;
+    wchar_t path[MAX_PATH], buf[64];
+    IniPath(path);
+    static const wchar_t *const kA[2] = {L"StockMountPitch", L"StockMountYaw"};
+    for (int i = 0; i < 2; ++i)
+        if (GetPrivateProfileStringW(L"aim", kA[i], L"", buf, 64, path)) g_mount[i] = (float)_wtof(buf);
+    static const wchar_t *const kC[3] = {L"StockCheekRight", L"StockCheekUp", L"StockCheekBack"};
+    int got = 0;
+    for (int i = 0; i < 3; ++i)
+        if (GetPrivateProfileStringW(L"aim", kC[i], L"", buf, 64, path)) g_cheekLearnt[i] = (float)_wtof(buf), ++got;
+    g_haveLearnt = got == 3;
+    // The default: the first [scope.<gun>] with RifleScope=1 (sections in file order).
+    static wchar_t names[32768];
+    DWORD n = GetPrivateProfileSectionNamesW(names, 32768, path);
+    for (wchar_t *q = names; n && *q && !g_haveRifle; q += wcslen(q) + 1) {
+        if (_wcsnicmp(q, L"scope.", 6) || !GetPrivateProfileIntW(q, L"RifleScope", 0, path)) continue;
+        float v[4] = {0, 0.075f, -0.03f, 0.07f};  // scope.cpp's defaults
+        static const wchar_t *const kR[4] = {L"EyeRight", L"EyeUp", L"EyeForward", L"EyeDistance"};
+        for (int i = 0; i < 4; ++i)
+            if (GetPrivateProfileStringW(q, kR[i], L"", buf, 64, path)) v[i] = (float)_wtof(buf);
+        g_cheekRifle[0] = v[0], g_cheekRifle[1] = v[1], g_cheekRifle[2] = -(v[2] - v[3]);  // eye = glass - forward * distance
+        snprintf(g_cheekGun, sizeof g_cheekGun, "%ls", q + 6);
+        g_haveRifle = true;
+    }
+    Log("stock mount: turn %.2f deg front up, %.2f deg front right; cheek point %s (%.3f right, %.3f up, %.3f back m)%s%s",
+        g_mount[0], g_mount[1], g_haveLearnt ? "learnt" : g_haveRifle ? "from the rifle scope of" : "none, turning about the controller",
+        g_haveLearnt ? g_cheekLearnt[0] : g_cheekRifle[0], g_haveLearnt ? g_cheekLearnt[1] : g_cheekRifle[1],
+        g_haveLearnt ? g_cheekLearnt[2] : g_cheekRifle[2], !g_haveLearnt && g_haveRifle ? " " : "", !g_haveLearnt && g_haveRifle ? g_cheekGun : "");
+}
+void MountSave() {
+    wchar_t path[MAX_PATH], buf[32];
+    IniPath(path);
+    swprintf(buf, 32, L"%.2f", g_mount[0]), WritePrivateProfileStringW(L"aim", L"StockMountPitch", buf, path);
+    swprintf(buf, 32, L"%.2f", g_mount[1]), WritePrivateProfileStringW(L"aim", L"StockMountYaw", buf, path);
+    static const wchar_t *const kC[3] = {L"StockCheekRight", L"StockCheekUp", L"StockCheekBack"};
+    for (int i = 0; i < 3; ++i) {
+        if (g_haveLearnt) swprintf(buf, 32, L"%.4f", g_cheekLearnt[i]);
+        WritePrivateProfileStringW(L"aim", kC[i], g_haveLearnt ? buf : nullptr, path);
+    }
+    Log("stock mount: saved %.2f deg front up, %.2f deg front right, cheek point %s", g_mount[0], g_mount[1], g_haveLearnt ? "learnt" : "default");
+}
+float *MountAngle(int i) { MountLoad(); return &g_mount[i ? 1 : 0]; }
+// 0 = turning about the controller, 1 = cheek point from a rifle scope, 2 = learnt
+int MountCheekKind(float out[3], const char **gun) {
+    MountLoad();
+    if (gun) *gun = g_cheekGun;
+    if (g_haveLearnt) {
+        if (out) memcpy(out, g_cheekLearnt, 12);
+        return 2;
+    }
+    if (g_haveRifle) {
+        float s = 1;
+        EngineView v;
+        if (EngineLastView(&v) && v.scale > 0.1f) s = v.scale;  // the eyepiece values are game-world units
+        if (out) for (int i = 0; i < 3; ++i) out[i] = g_cheekRifle[i] * s;
+        return 1;
+    }
+    if (out) out[0] = out[1] = out[2] = 0;
+    return 0;
+}
+void MountCheekDefault() {
+    MountLoad();
+    g_haveLearnt = false;
+    MountSave();
+    snprintf(g_cheekMsg, sizeof g_cheekMsg, "Back to the default cheek point.");
+}
+void MountCheekLearnIn(float s) {
+    g_cheekCapAt = GetTickCount() + (DWORD)(s * 1000), g_cheekCapOn = 1;
+    g_cheekMsg[0] = 0;
+}
+float MountCheekLearnLeft() { return g_cheekCapOn ? (float)(LONG)(g_cheekCapAt - GetTickCount()) / 1000.0f : 0; }
+const char *MountCheekMsg() { return g_cheekMsg; }
+float MountBuzz() {  // both hands: a tick each second of the countdown, a long one at the capture
+    DWORD t = GetTickCount();
+    if ((LONG)(g_cheekBuzzUntil - t) > 0) return 0.8f;
+    LONG d = (LONG)(g_cheekCapAt - t);
+    return g_cheekCapOn && d > 0 && d % 1000 > 920 ? 0.4f : 0;
+}
+// Once a frame (HeadtrackOnPresent): the countdown. The eye's place in the real controller's axes.
+static void MountCheekTick() {
+    if (!g_cheekCapOn || (LONG)(g_cheekCapAt - GetTickCount()) > 0) return;
+    g_cheekCapOn = 0, g_cheekBuzzUntil = GetTickCount() + 400;
+    float m[16], ho[3], hm[16], hp[3];
+    if (!HeadtrackHandRaw(1, m, ho) || !EngineHeadPose(hm, hp)) {
+        snprintf(g_cheekMsg, sizeof g_cheekMsg, "Not learnt: the controller or headset wasn't tracked.");
+        Log("stock mount: cheek point not learnt (no controller or head pose)");
+        return;
+    }
+    float d[3] = {hp[0] - ho[0], hp[1] - ho[1], hp[2] - ho[2]}, k[3];
+    for (int j = 0; j < 3; ++j) k[j] = m[j] * d[0] + m[4 + j] * d[1] + m[8 + j] * d[2];  // M^T d: the controller's own axes
+    float len = sqrtf(k[0] * k[0] + k[1] * k[1] + k[2] * k[2]);
+    if (len > 0.8f || k[2] < 0) {  // the eye must be behind the controller, within 80 cm
+        snprintf(g_cheekMsg, sizeof g_cheekMsg, "Not learnt: your eye was %.0f cm %s the controller. Hold your normal aim and try again.", len * 100,
+                 k[2] < 0 ? "in front of" : "from");
+        Log("stock mount: cheek point not learnt: %.3f right, %.3f up, %.3f back m (%.0f cm away)", k[0], k[1], k[2], len * 100);
+        return;
+    }
+    memcpy(g_cheekLearnt, k, 12), g_haveLearnt = true;
+    MountSave();
+    snprintf(g_cheekMsg, sizeof g_cheekMsg, "Learnt: %.0f cm behind, %.0f cm above, %.0f cm right of the controller.", k[2] * 100, k[1] * 100, k[0] * 100);
+    Log("stock mount: cheek point learnt: %.3f right, %.3f up, %.3f back m", k[0], k[1], k[2]);
+}
+static bool MountApplies() {
+    if (!g_mountLoaded) MountLoad();
+    if (g_mount[0] == 0 && g_mount[1] == 0) return false;
+    // gunstock aiming only, on foot, not with the bow (left hand), C4 (left hand) or a mounted gun
+    return *TwoHandStockAim() && !BowActive() && EngineOnFoot() && !EngineInVehicle() && !EngineTurret();
+}
+// m: the hand's rotation (columns = its axes), o: its place; turned by the mount angle about the cheek point.
+static void MountTurn(float m[16], float o[3]) {
+    const float p = g_mount[0] * 0.0174533f, y = -g_mount[1] * 0.0174533f;  // +yaw = front to the right
+    const float cp = cosf(p), sp = sinf(p), cy = cosf(y), sy = sinf(y);
+    // R = Ry * Rx in the controller's axes: pitch about its right (front up), then yaw about its up
+    const float R[9] = {cy, sy * sp, sy * cp, 0, cp, -sp, -sy, cy * sp, cy * cp};
+    float k[3];
+    MountCheekKind(k, nullptr);
+    float dk[3];
+    for (int i = 0; i < 3; ++i) dk[i] = k[i] - (R[i * 3] * k[0] + R[i * 3 + 1] * k[1] + R[i * 3 + 2] * k[2]);
+    for (int i = 0; i < 3; ++i) o[i] += m[i * 4] * dk[0] + m[i * 4 + 1] * dk[1] + m[i * 4 + 2] * dk[2];
+    float n[9];
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) n[i * 3 + j] = m[i * 4] * R[j] + m[i * 4 + 1] * R[3 + j] + m[i * 4 + 2] * R[6 + j];
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) m[i * 4 + j] = n[i * 3 + j];
+}
 // twohand1: the right hand's aim turns to the line between the hands while both hold the gun.
-bool HeadtrackHand(int hand, float m[16], float off[3]) {
+static bool HandAim(int hand, float m[16], float off[3], bool mount) {
     float o[3];
     // c4hands1: with C4 out the left hand (the charge, thrown with the left trigger) aims
     if (hand == 1 && GunAttachC4Split()) return HeadtrackHandRaw(0, m, off ? off : o);
@@ -191,10 +334,14 @@ bool HeadtrackHand(int hand, float m[16], float off[3]) {
         else TwoHandApply(m, o);
         TwoHandSmooth(m);  // twosmooth1: both grips holding (gun or bow)
         PistolSteadyFilter(m);  // steady1: pistol with the hands together
+        if (mount && MountApplies()) MountTurn(m, o);  // mount1
     }
     if (off) memcpy(off, o, 12);
     return true;
 }
+bool HeadtrackHand(int hand, float m[16], float off[3]) { return HandAim(hand, m, off, true); }
+// mount1: the same without the stock mount angle (gunstock distances measure the real controller)
+bool HeadtrackHandUnturned(int hand, float m[16], float off[3]) { return HandAim(hand, m, off, false); }
 
 void HeadtrackOnPresent() {
     if (KeyPressed(VK_F8)) {
@@ -219,6 +366,7 @@ void HeadtrackOnPresent() {
 
     static bool engineTried;
     if (!engineTried) engineTried = true, EngineInstall();
+    MountCheekTick();  // mount1
     float pq[4], pp[3];
     XrGetLastPose(pq, pp);
     Mat h = g_head;
