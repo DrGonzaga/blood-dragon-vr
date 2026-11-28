@@ -19,6 +19,11 @@ Ubisoft's online servers for this game are closed, and a game update can undo th
 * Turn off overlays for this game: the Steam overlay (game Properties, General), the Ubisoft Connect overlay, the NVIDIA app overlay (Alt+Z, Settings), Discord and any others. Overlays hook the same graphics the mod uses.
 * Don't use Steam's "Verify integrity of game files". If you do, or Steam updates the game anyway, run Setup again and choose Install.
 
+# UBISOFT CONNECT COPIES
+* The Ubisoft Connect version of the game works too: the mod recognises it by itself. In Setup's folder list it shows as [Ubisoft Connect]. It gets its own desktop shortcut, "Blood Dragon VR (Ubisoft Connect)".
+* Owning the game on Steam AND installing it in Ubisoft Connect: Steam's copy also starts through Ubisoft Connect, which then runs its own copy. Use the desktop shortcuts to choose the copy.
+* If you uninstall the Ubisoft Connect copy and the Steam copy then gets stuck on the Ubisoft splash screen or "Game installation not found": press Play once in Steam and pick a language when it asks. That redoes Steam's first-time setup, which tells Ubisoft Connect where the Steam copy is. If Steam then wants to update the game, cancel and use the desktop shortcut. Still stuck? Ask on the mod's GitHub page: there is a small registry fix.
+
 # STARTING A SESSION
 1. Put the headset on and connect to the PC in Virtual Desktop.
 2. Start the game from the Blood Dragon VR shortcut on your desktop.

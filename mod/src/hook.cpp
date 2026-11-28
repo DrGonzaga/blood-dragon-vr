@@ -616,6 +616,7 @@ static DWORD WINAPI MainThread(LPVOID) {
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, L"d3d11.dll", &pinned);
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, L"dxgi.dll", &pinned);
     LogModule(L"FC3_d3d11.dll");
+    if (g_bloodDragon) BdBuild();  // ubi1: logs which engine build (Steam / Ubisoft Connect) the addresses are for
     LogModule(L"dxgi.dll");
     LogModule(L"upc_r1_loader.dll");
     LogModule(L"uplay_r1_loader.dll");  // bd1: Blood Dragon's older Ubisoft loader

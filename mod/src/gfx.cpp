@@ -49,8 +49,8 @@ void Scan() {
     BYTE *fc3 = Game();
     if (!fc3) return;
     g_scanned = true;
-    BYTE *node = *(BYTE **)(fc3 + ((g_bloodDragon ? kBdVarHead : kVarHead) - kImageBase));
-    void *bvt = fc3 + ((g_bloodDragon ? kBdBoolVt : kBoolVt) - kImageBase), *fvt = fc3 + ((g_bloodDragon ? kBdFloatVt : kFloatVt) - kImageBase);
+    BYTE *node = *(BYTE **)(BdAt(fc3, (g_bloodDragon ? kBdVarHead : kVarHead)));
+    void *bvt = BdAt(fc3, (g_bloodDragon ? kBdBoolVt : kBoolVt)), *fvt = BdAt(fc3, (g_bloodDragon ? kBdFloatVt : kFloatVt));
     int other = 0;
     for (int guard = 0; node && guard < 4000 && g_nvars < 1024; ++guard) {
         if (!Readable(node, 0x18)) break;
@@ -119,6 +119,7 @@ char g_profile[16][16];  // the profile's values when the game started, per kPro
 bool g_haveProfile;
 
 }  // namespace
+bool GfxProfilePath(wchar_t *out) { return ProfilePath(out); }  // lang1: prompts.cpp reads the game's language
 
 // Settings the game reads at start, from GamerProfile.xml.
 const GfxProfileSetting kProfile[] = {
@@ -312,7 +313,7 @@ void GfxResetLive() {
 static BYTE *BloomJump() {
     BYTE *bd = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
     if (!bd) return nullptr;
-    BYTE *q = bd + (0x10125ca3 - 0x10000000);
+    BYTE *q = BdAt(bd, 0x10125ca3);
     if (IsBadReadPtr(q - 3, 5) || (q[0] != 0x74 && q[0] != 0xeb) || q[1] != 0x25 || q[-3] != 0x38 || q[-2] != 0x4a || q[-1] != 0x56) return nullptr;
     return q;
 }

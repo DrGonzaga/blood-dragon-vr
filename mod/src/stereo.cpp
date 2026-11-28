@@ -14,7 +14,7 @@ static const DWORD kImageBase = 0x10000000;
 // bd2: keep = how many whole instructions' bytes move (Blood Dragon's prologue is push ebx; mov ebx, esp;
 // push ecx; push ecx = 5), and the DLL is passed in.
 static void *InlineHook(DWORD va, const BYTE *prologue, int len, void *hook, const char *what, int keep, BYTE *m) {
-    BYTE *target = m + (va - kImageBase);
+    BYTE *target = BdAt(m, va);
     if (!m || memcmp(target, prologue, len)) {
         Log("stereo: %s doesn't match; not hooked", what);
         return nullptr;
@@ -441,14 +441,14 @@ static const DWORD kBdKick = 0x100136c0, kBdKickMask = 0x1182c218;
 static void HookKick() {
     BYTE *m = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
     const DWORD kick = g_bloodDragon ? kBdKick : kKick, mask = g_bloodDragon ? kBdKickMask : kKickMask;
-    BYTE *t = m + (kick - kImageBase);
+    BYTE *t = BdAt(m, kick);
     // the whole "test [mask], eax" must match too: 85 05 <mask address>
     if (!m || memcmp(t, kKickPrologue, sizeof kKickPrologue) || t[7] != 0x85 || t[8] != 0x05 ||
-        *(DWORD *)(t + 9) != (DWORD)m + (mask - kImageBase)) {
+        *(DWORD *)(t + 9) != (DWORD)BdAt(m, mask)) {
         Log("stereo: worker kick doesn't match; not hooked");
         return;
     }
-    g_kickMask = (DWORD *)((BYTE *)m + (mask - kImageBase));
+    g_kickMask = (DWORD *)(BdAt(m, mask));
     BYTE patch[8];
     memcpy(patch, t, 8);
     patch[0] = 0xe9;

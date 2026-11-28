@@ -28,7 +28,7 @@ void LootInstallBd(BYTE *bd) {
     static const BYTE kBd[6] = {0x0f, 0x84, 0xbe, 0x01, 0x00, 0x00};
     static const BYTE kBdSkip[6] = {0xe9, 0xbf, 0x01, 0x00, 0x00, 0x90};
     static const BYTE kBefore[2] = {0x84, 0xc0}, kAfter[4] = {0x80, 0x7d, 0xff, 0x00};
-    BYTE *s = bd + 0x762900;
+    BYTE *s = BdAt(bd, 0x762900);
     if ((memcmp(s, kBd, 6) && memcmp(s, kBdSkip, 6)) || memcmp(s - 2, kBefore, 2) || memcmp(s + 6, kAfter, 4)) {
         Log("loot: Blood Dragon's looting code doesn't match; animations left as they are");
         return;

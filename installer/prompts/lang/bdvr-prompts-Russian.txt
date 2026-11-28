@@ -1,0 +1,1033 @@
+﻿; ================================================================
+;  BLOOD DRAGON VR - ТЕКСТЫ УПРАВЛЕНИЯ НА РУССКОМ
+;  Используется, когда язык игры (меню «Настройки» самой игры) русский.
+;  Игра показывает свои тексты на русском; этот файл меняет только названия
+;  кнопок (ЧАСТЬ 1) и тексты, переписанные для VR (строки VR:).
+;  Строки GAME: - АНГЛИЙСКИЙ текст игры, только для справки.
+;  Можно редактировать: мод перечитывает файл сразу после сохранения.
+; ================================================================
+;
+;  (English instructions follow)
+;
+; ================================================================
+;  BLOOD DRAGON VR - IN-GAME PROMPT TEXTS
+;  Lives in the game's bin folder next to fc3vr.ini. The mod reads it at start
+;  and again whenever you save it (even with the game running).
+; ================================================================
+;
+;  Lines starting with ; are notes and are ignored.
+;
+;  PART 1 - BUTTON NAMES
+;  The game writes buttons as tokens like [Reload]. On screen the game swaps
+;  each token for a picture of the flat-screen pad button. Give a token a name
+;  below and every text that uses it shows your name instead, for example
+;      [Reload] = B      turns "HOLD [Reload] TO RELOAD" into "HOLD B TO RELOAD"
+;  Leave a name empty to keep the game's button picture.
+;  The names below are the defaults for the shipped button layout.
+;
+;  PART 2 - WHOLE TEXTS
+;  Every game text that mentions a button, grouped as the game files group them.
+;      #56331  SP_Actions_Reload       <- the text's number and name (don't change)
+;      GAME: [Reload] RELOAD           <- what the game says (for reference only)
+;      VR:                             <- write your own text here
+;  An empty VR: line keeps the game's text (with the button names from part 1).
+;  Your VR text can be any length and can still use tokens like [Reload].
+;  \n starts a new line. Bits like <font color="#94ffa8">...</font> colour words
+;  and <img .../> show a small icon; keep them or delete them as you like.
+;  Some texts are never shown in the PC game (console or old versions): the
+;  numbers that do appear are listed in fc3vr.log as "prompts: text <number>".
+
+[BUTTON NAMES]
+; button names (translated from DrGonzaga's English names, 27 Nov)
+; on foot
+[Move] = ЛЕВЫЙ СТИК
+[WalkForward] = ЛЕВЫЙ СТИК ВВЕРХ
+[WalkBackward] = ЛЕВЫЙ СТИК ВНИЗ
+[Run] = НАЖАТИЕ ЛЕВОГО СТИКА
+[Jump] = A
+[Climb] = A
+[Crouch] = ПРАВЫЙ СТИК ВНИЗ
+[Aim] = ГОЛОВА
+[Look] = ГОЛОВА
+[LookDown] = ПОСМОТРИТЕ ВНИЗ
+[Interact] = B
+[Loot] = B
+[Heal] = Y
+[TakeDown] = НАЖАТИЕ ПРАВОГО СТИКА ИЛИ ВЗМАХ
+[KnifeThrow] =
+[PistolMarksman] =
+; guns
+[Fire] = RT
+[Shoot] = RT
+[Reload] = B
+[IronSight] = LT
+[SteadyAim] = LT
+[HoldBreath] =
+[SniperZoom] = A / X
+[SwitchWeapon] = Y
+[Previousweapon] = Y
+[GadgetWheel] = ПОВЕРНИТЕ ЛЕВОЕ ЗАПЯСТЬЕ ВВЕРХ
+[HoldWeaponInv] =
+[WeaponWheelSelect] =
+; throwing and explosives
+[Throw] = X
+[PinPull] =
+[ThrowRock] = ПРАВЫЙ СТИК ВВЕРХ
+[ThrowLure] = X + Y
+[PlaceIED] = LT
+[DetonateIED] = RT
+; cyber-eye
+[EquipCamera] = ЛЕВАЯ РУКА К ГОЛОВЕ + ДЕРЖАТЬ GRIP
+[Camera] = ЛЕВАЯ РУКА К ГОЛОВЕ + ДЕРЖАТЬ GRIP
+[ZoomIn] = RT
+[ZoomOut] = LT
+; ziplines and vehicles
+[ZipAttach] = A
+[ZipDetach] = B
+[HoldEnterExit] = B
+[LeaveVehicle] = B
+[SwitchSeats] = B
+[Accelerate] = RT
+[Brake] = LT
+[Steer] = ЛЕВЫЙ СТИК
+[HandBrake] =
+[Radio] =
+[NextSong] =
+; map and menus
+[WorldMap] = ЛЕВОЕ МЕНЮ
+[MoveMap] = ЛЕВЫЙ СТИК
+[MapWaypoint] = B
+[MapLegend] =
+[ZoomInWorldMap] = RT
+[ZoomOutWorldMap] = LT
+[ZoomInOutWorldMap] = RT / LT
+[Accept] = A
+[Start] = ЛЕВЫЙ GRIP + МЕНЮ
+[StartFlash] = МЕНЮ
+[ContextualPopupOpen] =
+[TabRight] =
+[NewsFeed] =
+[MenuUp] = ЛЕВЫЙ СТИК ВВЕРХ
+[MenuDown] = ЛЕВЫЙ СТИК ВНИЗ
+
+[TEXTS]
+
+; ----------------------------------------------------------------
+; BUTTON PROMPTS
+; ----------------------------------------------------------------
+
+#56344  SP_Actions_Interact
+GAME: HOLD [Interact] TO INTERACT
+VR: 
+
+#56343  SP_Actions_Detach
+GAME: [ZipDetach] DETACH
+VR: 
+
+#56345  SP_Actions_Climb
+GAME: [Climb] CLIMB
+VR: 
+
+#56331  SP_Actions_Reload
+GAME: [Reload] RELOAD
+VR: 
+
+#59889  SP_Actions_Loot
+GAME: HOLD [Loot] TO PILFER
+VR: 
+
+#104575  SP_Actions_Loot_BD
+GAME: HOLD [Loot] TO RIP OUT CYBER-HEART
+VR: 
+
+#118675  SP_Actions_Just_Loot
+GAME: HOLD [Loot] TO PILFER
+VR: 
+
+#154933  SP_Actions_Use
+GAME: HOLD [Loot]: USE
+VR: 
+
+#118674  SP_Actions_Take_Item
+GAME: HOLD [Loot] TO TAKE ITEM
+VR: 
+
+#118673  SP_Actions_Take_Items
+GAME: HOLD [Loot] TO TAKE ITEMS
+VR: 
+
+#59890  SP_Actions_Takedown
+GAME: [TakeDown] TAKEDOWN
+VR: 
+
+#118680  SP_Actions_Takedown_From_Water
+GAME: [TakeDown] LEDGE TAKEDOWN
+VR: 
+
+#152236  SP_Actions_Takedown_From_Water2
+GAME: [TakeDown] DOUBLE TAKEDOWN
+VR: 
+
+#118681  SP_Actions_Takedown_From_Ledge
+GAME: [TakeDown] LEDGE TAKEDOWN
+VR: 
+
+#152237  SP_Actions_Takedown_From_Ledge2
+GAME: [TakeDown] DOUBLE TAKEDOWN
+VR: 
+
+#59892  SP_Actions_Throwknife
+GAME: [Aim] AIM\n[Fire] THROW KNIFE
+VR: 
+
+#69985  SP_Actions_LeaveGlider
+GAME: HOLD [LeaveVehicle] TO EXIT GLIDER
+VR: 
+
+#71685  SP_Actions_DisableAlarm
+GAME: HOLD [Interact] TO DISABLE ALARM
+VR: 
+
+#104637  SP_Actions_Take_Animal_Parts
+GAME: HOLD [Loot] TO TAKE ANIMAL PARTS
+VR: 
+
+#108976  SP_Actions_Loot_Container
+GAME: HOLD [Loot] TO PILFER CONTAINER
+VR: 
+
+#108977  SP_Actions_Loot_Cash_Pile
+GAME: HOLD [Loot] TO STEAL CREDITS
+VR: 
+
+#166306  SP_Actions_Commandeer
+GAME: HOLD [Interact] TO STEAL VEHICLE
+VR: 
+
+#155553  SP_Loot_Ammo
+GAME: HOLD [Loot] TO TAKE AMMO
+VR: 
+
+#56341  SP_Actions_Heal
+GAME: HOLD [Heal] TO HEAL
+VR: 
+
+#159641  SP_Actions_Hold
+GAME: HOLD
+VR: 
+
+#160724  SP_KnifeTakedownTexture
+GAME: [KnifeThrow]
+VR: 
+
+#161020  SP_Actions_Push
+GAME: HOLD [Interact] TO PUSH
+VR: 
+
+#163806  SP_PutOutFire
+GAME: HOLD [Heal] TO PUT OUT FIRE
+VR: 
+
+#167555  SP_SwitchSeatGun
+GAME: [SwitchSeats] MOUNTED GUN
+VR: 
+
+#167556  SP_SwitchSeatDriver
+GAME: [SwitchSeats] DRIVER'S SEAT
+VR: 
+
+#167636  SP_Actions_NormalArrow
+GAME: [Reload] NORMAL ARROW
+VR: 
+
+#167721  SP_Actions_Detonate
+GAME: [Shoot] DETONATE
+VR: 
+
+#167743  SP_Actions_Civilian2
+GAME: SHOOTING SCIENTISTS WILL TRIGGER SYSTEM SHUTDOWN
+VR: 
+
+#56342  SP_Actions_Attach
+GAME: [ZipAttach] USE ZIPLINE
+VR: 
+
+#104640  SP_Actions_Take_Notes
+GAME: HOLD [Loot] TO TAKE THE NOTE
+VR: 
+
+#104639  SP_Actions_Take_VHStapes
+GAME: HOLD [Loot] TO RENT VHS TAPE
+VR: 
+
+#104638  SP_Actions_Take_TVSets
+GAME: HOLD [Loot] TO INTERACT WITH TV SET
+VR: 
+
+#119598  SP_Actions_Interact_TakeAmmo
+GAME: HOLD [Interact] TO REFILL AMMO.
+VR: 
+
+#119599  SP_Actions_Interact_TakeGrenade
+GAME: HOLD [Interact] TO REFILL EXPLOSIVES.
+VR: 
+
+#167712  SP_Hint_Mines
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Shoot] Place a <font color="#94ffa8">mine</font><br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>It explodes when an enemy is <font color="#94ffa8">nearby</font>
+VR: 
+
+; ----------------------------------------------------------------
+; HUD POPUPS
+; ----------------------------------------------------------------
+
+#155654  HUDPOPUP_HUD_PRESS_BACK
+GAME: PRESS [ContextualPopupOpen]
+VR: 
+
+#180276  HUDPOPUP_HUD_PRESS_START
+GAME: PRESS [StartFlash]
+VR: 
+
+#155217  HUDPOPUP_SHOOTING_HOLDBREATH
+GAME: [HoldBreath] HOLD BREATH
+VR: 
+
+#172552  HUDPOPUP_SHOOTING_ZOOM
+GAME: [SniperZoom] ZOOM
+VR: 
+
+#155219  HUDPOPUP_SHOOTING_HOLDBREATH2
+GAME: [HoldBreath] HOLD BREATH [SniperZoom] ZOOM
+VR: 
+
+#143243  HUD_POPUP_EXOTIC_HOLD
+GAME: HOLD
+VR: 
+
+#143244  HUD_POPUP_EXOTIC_MASH
+GAME: PRESS AGAIN AND AGAIN
+VR: 
+
+; ----------------------------------------------------------------
+; HUD
+; ----------------------------------------------------------------
+
+#174621  MISSN030_HUD_C4000
+GAME: HOLD [Loot] TO TAKE C4000
+VR: 
+
+#174714  MISSN030_HUD_PUNCH
+GAME: HOLD [Loot] TO PUNCH THE REACTOR
+VR: 
+
+#178266  MISSN030_HUD_Tutorial_Swim
+GAME: USE [Move] TO SWIM
+VR: 
+
+#178267  MISSN030_HUD_Tutorial_SwimFaster
+GAME: HOLD [Run] TO SWIM FASTER
+VR: 
+
+; ----------------------------------------------------------------
+; TUTORIAL
+; ----------------------------------------------------------------
+
+#174159  MISSN010_TUTO_CROUCH
+GAME: PRESS [Crouch] TO CROUCH. BEING LOWER ALONG THE Z-PLANE MAKES IT HARDER FOR ENEMIES TO SEE YOU
+VR: 
+
+#180138  MISSN010_TUTO_CROUCH2
+GAME: PRESSING [Crouch] WILL TRIGGER YOUR QUADRICEPS IN ORDER TO CROUCH.
+VR: 
+
+#180327  MISSN010_TUTO_CROUCH3
+GAME: [Crouch] CROUCH ACTIVATES YOUR QUADRICEPS AND CHALLENGES YOUR SENSE OF BALANCE
+VR: ПРАВЫЙ СТИК ВНИЗ ИЛИ НАСТОЯЩЕЕ ПРИСЕДАНИЕ ЗАДЕЙСТВУЕТ ВАШИ КВАДРИЦЕПСЫ И ИСПЫТЫВАЕТ ЧУВСТВО РАВНОВЕСИЯ
+
+#180477  MISSN010_TUTO_CROUCH_REMINDER
+GAME: [Crouch] TO CROUCH.
+VR: 
+
+#174163  MISSN010_TUTO_RUN
+GAME: PRESS AND HOLD [Run] TO ACTIVATE YOUR PRIMARY, SUPPORTING, AND AUXILLARY MUSCLES TO HELP YOU ACCELERATE SPEED
+VR: 
+
+#180541  MISSN010_TUTO_RUN_PC
+GAME: PRESS [Run] TO ACTIVATE YOUR PRIMARY, SUPPORTING, AND AUXILLARY MUSCLES TO HELP YOU ACCELERATE SPEED
+VR: НАЖМИТЕ ЛЕВЫЙ СТИК, ЧТОБЫ ЗАДЕЙСТВОВАТЬ ОСНОВНЫЕ, ВСПОМОГАТЕЛЬНЫЕ И ДОПОЛНИТЕЛЬНЫЕ МЫШЦЫ И УСКОРИТЬСЯ
+
+#180480  MISSN010_TUTO_RUN_REMINDER
+GAME: PRESS AND HOLD [Run] TO RUN.
+VR: 
+
+#180542  MISSN010_TUTO_RUN_REMINDER_PC
+GAME: PRESS [Run] TO RUN.
+VR: НАЖМИТЕ ЛЕВЫЙ СТИК, ЧТОБЫ БЕЖАТЬ.
+
+#180140  MISSN010_TUTO_WALK
+GAME: [Move] TO WALK, WHICH IS FOCUSING ON SLOWING DOWN YOUR PACE FROM RUN TO SOMETHING SIGNIFICANTLY SLOWER
+VR: 
+
+#180479  MISSN010_TUTO_WALK_REMINDER
+GAME: [Move] TO WALK.
+VR: 
+
+#174164  MISSN010_TUTO_JUMP
+GAME: PRESSING [Jump] ENABLES YOU TO MOVE IN A Z-AXIS ARC WITHOUT TOUCHING THE GROUND INBETWEEN
+VR: 
+
+#180267  MISSN010_TUTO_JUMP_REMINDER
+GAME: PRESS [Jump] TO JUMP.
+VR: 
+
+#180266  MISSN010_TUTO_LOOK
+GAME: [Aim] ALLOWS YOU TO LOOK AROUND, WHICH ENGAGES ONE OF YOUR FIVE SENSES VITAL TO NAVIGATION.
+VR: 
+
+#180328  MISSN010_TUTO_LOOK2
+GAME: [Aim] LOOK AROUND ENGAGES ONE OF YOUR FIVE SENSES VITAL TO NAVIGATION
+VR: ОГЛЯДЫВАНИЕ В ШЛЕМЕ ЗАДЕЙСТВУЕТ ОДНО ИЗ ПЯТИ ЧУВСТВ, ЖИЗНЕННО ВАЖНОЕ ДЛЯ ОРИЕНТИРОВАНИЯ
+
+#180478  MISSN010_TUTO_LOOK_REMINDER
+GAME: [Aim] TO LOOK AROUND.
+VR: ПОВОРАЧИВАЙТЕ ГОЛОВУ, ЧТОБЫ ОСМОТРЕТЬСЯ.\nПОДНЕСИТЕ ЛЕВЫЙ КОНТРОЛЛЕР К ЛЕВОЙ СТОРОНЕ ГОЛОВЫ И НАЖМИТЕ GRIP, ЧТОБЫ ПОКАЗАТЬ ЗАДАЧУ.
+
+#174165  MISSN010_TUTO_CLIMB
+GAME: PRESS [Climb] TO CLIMB CERTAIN OBJECTS. WIRES DESIGNATE CLIMBING SPOTS
+VR: 
+
+#174168  MISSN010_TUTO_INTERACT
+GAME: HOLD [Interact] TO INTERACT WITH OBJECTS IN THE WORLD
+VR: 
+
+#180324  MISSN010_TUTO_FIRINGAIMING
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>PRESS [Fire] TO <font color="#94ffa8">SHOOT</font> YOUR WEAPON AND [IronSight] TO <font color="#94ffa8">AIM DOWN</font> THE SIGHTS.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">DIFFERENT WEAPONS</font> HAVE DIFFERENT <font color="#94ffa8">FIRING TYPES</font> THAT CAN BE MODIFIED WITH ATTACHMENTS.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">AIMING DOWN</font> THE SIGHT OF YOUR WEAPON ZOOMS IN YOUR VIEW AND GIVES YOU MORE <font color="#94ffa8">PRECISION</font>.
+VR: 
+
+#174169  MISSIN010_TUTO_TAKEDOWN
+GAME: WHEN YOU'RE UNDETECTED, ENEMIES CANNOT SEE YOU, ALLOWING YOU TO KILL NEARBY ENEMIES FROM BEHIND BY PRESSING [TakeDown]
+VR: ПОКА ВАС НЕ ОБНАРУЖИЛИ, ВРАГИ ВАС НЕ ВИДЯТ, И ВЫ МОЖЕТЕ УБИВАТЬ БЛИЖАЙШИХ СЗАДИ, НАЖАВ ПРАВЫЙ СТИК ИЛИ ВЗМАХНУВ ПРАВЫМ КОНТРОЛЛЕРОМ
+
+#180481  MISSIN010_TUTO_TAKEDOWN_REMINDER
+GAME: PRESS [TakeDown] TO INITIATE A TAKEDOWN.
+VR: 
+
+#174170  MISSN010_TUTO_HEAL
+GAME: HOLD [Heal] TO USE NANO-MEDS WHEN INJURED
+VR: 
+
+#180139  MISSN010_TUTO_TAGGING_REMINDER
+GAME: PRESS [Camera] TO USE CYBER-EYE.
+VR: ЛЕВЫЙ КОНТРОЛЛЕР К ГОЛОВЕ + ДЕРЖАТЬ GRIP ДЛЯ КИБЕРГЛАЗА.
+
+#180148  MISSN010_TUTO_LOOTING
+GAME: OMEGA FORCE SOLDIERS CAN BE PILFERED FOR AMMO, CREDITS AND THEIR CYBER-HEART. GET CLOSE TO THEIR BODY AND HOLD [Loot].
+VR: 
+
+#174181  MISSN010_TUTO_GRENADE
+GAME: PRESS [Throw] TO THROW A <font color="#94ffa8">GRENADE</font>. YOU CAN HOLD [Throw] TO <font color="#94ffa8">COOK</font> THE GRENADE AND THEN RELEASE TO THROW IT.
+VR: ПРИЦЕЛЬТЕСЬ ПРАВЫМ КОНТРОЛЛЕРОМ И НАЖМИТЕ X, ЧТОБЫ БРОСИТЬ <font color="#94ffa8">ГРАНАТУ</font>. УДЕРЖИВАЙТЕ X, ЧТОБЫ <font color="#94ffa8">ПРИДЕРЖАТЬ</font> ГРАНАТУ, И ОТПУСТИТЕ, ЧТОБЫ БРОСИТЬ.
+
+#174182  MISSN010_TUTO_TD_KNIFE
+GAME: PRESS [KnifeThrow] TO KILL A <font color="#94ffa8">SECOND ENEMY</font> IN SIGHT AFTER INITIATING A TAKEDOWN BY PRESSING [TakeDown] USING YOUR SHURIKEN, A WORD SYNONYMOUS WITH… NINJAS
+VR: 
+
+#174183  MISSN010_TUTO_TD_JUMP
+GAME: PRESS [Jump] TO JUMP. IF YOU LAND ON AN ENEMY, YOU WILL INITIATE A SINGLE OR DOUBLE TAKEDOWN.
+VR: 
+
+#174184  MISSN010_TUTO_TD_GRENADE
+GAME: NON STEALTH TAKEDOWNS\nPIN PULL = [TakeDown] + [PinPull]\nPISTOL HOSTAGE = [TakeDown] + [PistolMarksman]
+VR: 
+
+#178380  MISSN010_TUTO_ZipLine
+GAME: PRESS [Jump] UNDER A ZIPLINE TO RIDE DOWN
+VR: 
+
+#178509  MISSN010_TUTO_ThrowRock
+GAME: DICE DATE BACK TO OVER 5000 YEARS AGO WITH THE D6. THROW YOUR DICE BY PRESSING [ThrowRock] TO DISTRACT ENEMIES
+VR: ИГРАЛЬНЫМ КОСТЯМ D6 БОЛЕЕ 5000 ЛЕТ. БРОСЬТЕ КОСТИ, ПРИЦЕЛИВШИСЬ ПРАВЫМ КОНТРОЛЛЕРОМ И НАЖАВ ПРАВЫЙ СТИК ВВЕРХ, ЧТОБЫ ОТВЛЕЧЬ ВРАГОВ
+
+#180329  MISSN010_TUTO_ThrowRock_REMINDER
+GAME: PRESS [ThrowRock] TO THROW A DICE.
+VR: 
+
+#178511  MISSN010_TUTO_SwitchWeapons
+GAME: PRESS [Previousweapon] TO SWITCH FROM ONE WEAPON TO ONE THAT MIGHT BE MORE BENEFICIAL
+VR: 
+
+#179572  MISSN010_TUTO_WEAPONWHEEL
+GAME: PRESS AND HOLD [HoldWeaponInv] TO ACCESS THE <font color="#94ffa8">WEAPON WHEEL</font>, WHICH ISN’T A REAL WHEEL USED IN NAVIGATING VEHICLES, BUT A METAPHORIC ONE
+VR: ВАШЕ ОРУЖИЕ НА ВАШЕМ ТЕЛЕ. ПОТЯНИТЕСЬ К БЕДРУ ИЛИ ЗА ПЛЕЧО И СОЖМИТЕ <font color="#94ffa8">ПРАВЫЙ GRIP</font>, ЧТОБЫ ДОСТАТЬ. ПОВЕРНИТЕ <font color="#94ffa8">ЛЕВУЮ ЛАДОНЬ ВВЕРХ</font> ДЛЯ МЕТАТЕЛЬНОГО ОРУЖИЯ И ВЫБЕРИТЕ ПРАВЫМ GRIP
+
+#179630  MISSN010_TUTO_CHAIN_TD
+GAME: AFTER A TAKEDOWN, PRESS [Move] <font color="#94ffa8">TOWARD ANOTHER ENEMY</font> FOR A <font color="#94ffa8">CHAINED TAKEDOWN</font>
+VR: 
+
+#180482  MISSN010_TUTO_CHAIN_TD_REMINDER
+GAME: AFTER A TAKEDOWN, PRESS [Move] TOWARD ANOTHER ENEMY.
+VR: 
+
+#180453  MISSN010_TUTO_READ
+GAME: PRESS [Accept] TO DEMONSTRATE YOUR ABILITY TO READ
+VR: 
+
+#178639  MISSN_020_TUTO_PMS_Usage
+GAME: HOLD [Throw] TO ACTIVATE PMS
+VR: 
+
+#179392  MISSN_020_TUTO_LURE
+GAME: ENGAGE THE PECTORALIS MAJOR AND ANTERIOR DELTOID [ThrowLure] TO THROW A CYBER-HEART TO DISTRACT DRAGONS
+VR: 
+
+#179534  MISSN_020_TUTO_MAP_01
+GAME: USE THE ABDUCTOR POLLICIS LONGUS TO PRESS [WorldMap] TO ACCESS THE WORLD MAP
+VR: 
+
+#179536  MISSN_020_TUTO_MAP_02
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>MOVE YOUR CURSOR THROUGH THE APL MUSCLES WITH [MoveMap] \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>PLACE A MAP MARKER WITH [MapWaypoint]\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>USE YOUR VISUAL ACUITY TO SEE MAP LEGEND WITH [MapLegend]\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>ZOOM IN/OUT WITH [ZoomInWorldMap][ZoomOutWorldMap]
+VR: 
+
+#180515  MISSN_020_TUTO_MAP_02_PC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>MOVE YOUR CURSOR THROUGH THE APL MUSCLES WITH [MoveMap] \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>PLACE A MAP MARKER WITH [MapWaypoint]\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>USE YOUR VISUAL ACUITY TO SEE MAP LEGEND WITH [MapLegend]\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>ZOOM IN/OUT WITH [ZoomInOutWorldMap]
+VR: 
+
+#180338  MISSN_020_TUTO_MAP_OBJ
+GAME: MOVE YOUR CURSOR OVER A<img src="MC_TX_Outpost" vspace='0' hspace='0'/> LIBERATED, OR DEMOCRATICALLY POSITIVE GARRISON AND PRESS [Accept]
+VR: 
+
+#179539  MISSN_020_TUTO_SHOP_02
+GAME: SELECT <font color="#94ffa8">"WEAPONS"</font> CATEGORY AND PRESS [Accept] TO CHOOSE AN INSTRUMENT OF DESTRUCTION RATHER THAN WORKING THROUGH YOUR HOSTILITY ISSUES WITH THE ENEMY
+VR: 
+
+#179540  MISSN_020_TUTO_SHOP_03
+GAME: SELECT <font color="#94ffa8">"A.J.M. 9"</font> AND PRESS [Accept] TO ACCESS THE CORRESPONDING ATTACHMENTS
+VR: 
+
+#179541  MISSN_020_TUTO_SHOP_04
+GAME: PRESS [Accept] TO USE CURRENCY FOR THE CONSUMER RELATED ACTIVITY OF BUYING A <img src="MC_TX_6P9" vspace='0' hspace='0'/><font color="#94ffa8">SUPPRESSOR</font>
+VR: 
+
+; ----------------------------------------------------------------
+; TUTORIALS
+; ----------------------------------------------------------------
+
+#93339  WIKI_TUTO_NAV_LOOK_DESC
+GAME: [Aim] Look Around
+VR: 
+
+#93340  WIKI_TUTO_NAV_MOVE_DESC
+GAME: [Move] Walk
+VR: 
+
+#93341  WIKI_TUTO_NAV_CROUCH_DESC
+GAME: [Crouch] Crouch
+VR: 
+
+#93342  WIKI_TUTO_NAV_JUMP_DESC
+GAME: [Jump] Jump
+VR: 
+
+#93343  WIKI_TUTO_NAV_CLIMB_DESC
+GAME: [Climb] Climb
+VR: 
+
+#112301  WIKI_TUTO_NAV_SWIMMING_DESC
+GAME: [Move] and [Aim] to swim.
+VR: 
+
+#119509  WIKI_TUTO_NAV_FASTSWIMMING_DESC
+GAME: [Run] Swim Faster
+VR: 
+
+#93344  WIKI_TUTO_NAV_STEALTHCROUCH_DESC
+GAME: [Crouch] to crouch.\nReduces noise when moving.\nReduces chances of being detected by enemies.
+VR: 
+
+#93345  WIKI_TUTO_NAV_SPRINT_DESC
+GAME: [Run] Sprint
+VR: 
+
+#93346  WIKI_TUTO_NAV_VAULT_DESC
+GAME: [WalkForward] and [Jump] to vault over objects.
+VR: 
+
+#93347  WIKI_TUTO_NAV_ZIPLINE_DESC
+GAME: [Jump] Use Zipline
+VR: 
+
+#112303  WIKI_TUTO_NAV_GLIDER_DESC
+GAME: [Interact] Board Glider
+VR: 
+
+#143113  WIKI_TUTO_NAV_GLIDER2_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Accelerate][Brake][Steer] Steer<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Aim] Look<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Fly <font color="#94ffa8">low and straight</font> to land <font color="#94ffa8">safely</font><br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Interact] Bail out - use with <font color="#94ffa8">impunity</font>
+VR: 
+
+#93350  WIKI_TUTO_PLAYER_INTERACT_DESC
+GAME: Hold [Interact] to <font color="#94ffa8">interact</font> with objects
+VR: 
+
+#93351  WIKI_TUTO_PLAYER_LOOT_DESC
+GAME: Hold [Loot] to pilfer items.
+VR: 
+
+#146706  WIKI_TUTO_PLAYER_HEALTHSYSTEM_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Health is shown in the <font color="#d9f5f7">white bars</font> under the minimap<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Heal] <font color="#94ffa8">Heal</font><br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Buy <font color="#94ffa8">Nano-Meds</font> to heal<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Healing <font color="#94ffa8">without</font> Nano-Meds will be <font color="#94ffa8">slower and weaker</font>
+VR: 
+
+#93353  WIKI_TUTO_PLAYER_HEALING_DESC
+GAME: [Heal] Heal
+VR: 
+
+#93354  WIKI_TUTO_COMBAT_MELEE_DESC
+GAME: [TakeDown] performs a melee attack.\nUse melee attacks to fight enemies and destroy some objects.
+VR: 
+
+#93355  WIKI_TUTO_COMBAT_TAKEDOWN_DESC
+GAME: [TakeDown] Takedown Enemy from Behind
+VR: 
+
+#93356  WIKI_TUTO_COMBAT_HIPFIREIRONSIGHTSHOOT_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Fire] Shoot\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[IronSight] Aim
+VR: 
+
+#93357  WIKI_TUTO_COMBAT_RELOADING_DESC
+GAME: [Reload] Reload Weapon
+VR: 
+
+#93358  WIKI_TUTO_COMBAT_COVER_DESC
+GAME: [Fire] Blindfire\n[IronSight] Peek Out
+VR: 
+
+#110708  WIKI_TUTO_COMBAT_WEAPONSELECT_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [GadgetWheel] <font color="#94ffa8">View</font> weapons<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [WeaponWheelSelect] <font color="#94ffa8">Select</font> a weapon<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[SwitchWeapon] Switches to <font color="#94ffa8">previous</font> weapon
+VR: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Потянитесь к бедру или плечу и сожмите правый grip, чтобы <font color="#94ffa8">достать</font> оружие<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Поверните левую ладонь вверх для <font color="#94ffa8">метательного</font> оружия<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[SwitchWeapon] Переключает на <font color="#94ffa8">предыдущее</font> оружие
+
+#119507  WIKI_TUTO_COMBAT_WEAPONSELECT2_DESC
+GAME: [SwitchWeapon] Switch to Previous Weapon
+VR: 
+
+#110710  WIKI_TUTO_COMBAT_THROWABLES_DESC
+GAME: [Throw] Throw Grenade
+VR: 
+
+#143115  WIKI_TUTO_COMBAT_THROWABLES2_DESC
+GAME: Hold [Throw] to cook a grenade.\nTime the explosion.\nLet go before it detonates.
+VR: 
+
+#110896  WIKI_TUTO_OPENWORLD_DRIVING_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Accelerate] Accelerate and [Brake] Brake\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Steer] Steer\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[HandBrake] Handbrake\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Interact] Enter/exit vehicle\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[LookDown] Look back\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[SwitchSeats] Switch seat
+VR: 
+
+#127253  WIKI_TUTO_OPENWORLD_DRIVING_EXIT
+GAME: Hold [Interact] Exit Vehicle
+VR: 
+
+#110900  WIKI_TUTO_STEALTHAI_MOVESPEEDNOISE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Crouch] Crouch<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>reduces noise and visibility
+VR: 
+
+#110902  WIKI_TUTO_STEALTHAI_DIEDISTRACTION_DESC
+GAME: [ThrowRock] Throw a dice to distract enemies or animals. Use the distraction to sneak past.
+VR: 
+
+#110906  WIKI_TUTO_STEALTHAI_ALARMS_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Enemies use <img src="MC_TX_Alarm" vspace='0' hspace='0'/><font color="#94ffa8">alarms</font> to summon <font color="#94ffa8">reinforcements</font><br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Shooting one alarm won't affect the others<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Interact] to <font color="#94ffa8">disable</font> an alarm, which will shut down <font color="#94ffa8">all the alarms</font>
+VR: 
+
+#110911  WIKI_TUTO_WEAPONS_BOW_DESC
+GAME: Hold [Fire] Draw Arrow\nRelease [Fire] Fire\n[IronSight] Aim\n[Reload] Cancel draw
+VR: Держите лук в левой руке\nLT для стабилизации\nБерите стрелы из-за правого плеча\nНатяните и отпустите для выстрела
+
+#110912  WIKI_TUTO_WEAPONS_C4000_DESC
+GAME: [PlaceIED] Plant C400 Charge\n[DetonateIED] Detonate C400 Charges
+VR: 
+
+#110913  WIKI_TUTO_WEAPONS_PMS_DESC
+GAME: [Throw] Throw P.M.S.\nHOLD [Throw] to charge up P.M.S.
+VR: 
+
+#110914  WIKI_TUTO_WEAPONS_FLAMETHROWER_DESC
+GAME: [Fire] Fire
+VR: 
+
+#110908  WIKI_TUTO_GADGETS_CYBEREYE_DESC
+GAME: [EquipCamera] Turn On/Off Cyber-eye\n[ZoomIn] and [ZoomOut] Zoom
+VR: 
+
+#127232  WIKI_TUTO_GADGETS_DICE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[ThrowRock] Throw a <font color="#94ffa8">die</font> to <font color="#94ffa8">distract</font> enemies or animals.<br><img src="MC_TX_Bullet_List" vspace='0' hspace='0'/> Use the distraction to <font color="#94ffa8">sneak</font> past
+VR: 
+
+#110924  WIKI_TUTO_SYSTEMS_TAGGING_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[EquipCamera] Use <font color="#94ffa8">cyber-eye</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Center and zoom on enemies to <font color="#94ffa8">identify</font> them and <font color="#94ffa8">track</font> their position
+VR: 
+
+#110925  WIKI_TUTO_SYSTEMS_TAGGINGVANTAGEPOINTS_DESC
+GAME: To tag enemies from vantage points:\n[EquipCamera] to equip cyber-eye.\nCenter and zoom on enemies to identify them and track their position.
+VR: 
+
+#110926  WIKI_TUTO_SYSTEMS_WORLDMAP_DESC
+GAME: [WorldMap] to open the map.\n[MapWaypoint] to set or remove a waypoint.\n[MapLegend] to check the icon legend.
+VR: 
+
+#156514  SKILL_TUTO_TAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Approach an enemy and remain <font color="#94ffa8">undetected</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [TakeDown] when prompted to kill him\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111790  SKILL_TUTO_DEATHFROMABOVE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Get to a position <font color="#94ffa8">above</font> an enemy and look for the prompt\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">Jump</font> on him with [Jump] to execute him quickly\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111793  SKILL_TUTO_TAKEDOWNFROMWATER_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Move below an enemy who is on a <font color="#94ffa8">climbable</font> ledge <font color="#94ffa8">above</font> you\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [TakeDown] when prompted to reach up and kill him\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>This takedown can also be used from the <font color="#94ffa8">water</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111794  SKILL_TUTO_HEAVYUNITTAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>The standard takedown is now powerful enough to kill a <font color="#94ffa8">heavy gunner</font> or <font color="#94ffa8">flamer</font> in one hit\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Approach the <font color="#94ffa8">heavy</font> from behind and press [TakeDown] to kill him\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111795  SKILL_TUTO_TAKEDOWNFROMWATERDOUBLE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Move below <font color="#94ffa8">two enemies</font> who are on a <font color="#94ffa8">climbable</font> ledge <font color="#94ffa8">above</font> you\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [TakeDown] when prompted to reach up and kill them both\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>This takedown can also be used from the <font color="#94ffa8">water</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111796  SKILL_TUTO_DEATHFROMABOVEDOUBLE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Get to a position above <font color="#94ffa8">two enemies</font> and look for the prompt\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">Jump</font> on them with [Jump] to execute them both quickly\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">x7.5</font> the CP for each kill
+VR: 
+
+#111797  SKILL_TUTO_GRENADETAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[TakeDown] to initiate a standard takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Quickly press [PinPull] to <font color="#94ffa8">pull the pin</font> on his grenade and <font color="#94ffa8">kick him away</font> before it explodes\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111798  SKILL_TUTO_PISTOLMARKSMANTAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [TakeDown] to initiate a standard takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Quickly press [PistolMarksman] to take his <font color="#94ffa8">pistol</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Move] selects between nearby <font color="#94ffa8">enemies</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Fire] to kill them\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[Interact] <font color="#94ffa8">cancels</font> the takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111799  SKILL_TUTO_CHAINTAKEDOWNS_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[TakeDown] to initiate a standard takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Push [Move] to target the next enemy and <font color="#94ffa8">chain</font> the takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Keep <font color="#94ffa8">chaining</font> kills while enemies are <font color="#94ffa8">within range</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#111801  SKILL_TUTO_DRAGBACKTAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[TakeDown] to initiate a standard takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Quickly hold [WalkBackward] to start <font color="#94ffa8">dragging</font> the target's body\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Aim] to <font color="#94ffa8">turn</font> when moving backwards\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Release [WalkBackward] to <font color="#94ffa8">drop</font> the body
+VR: 
+
+#111803  SKILL_TUTO_KNIFETHROWTAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>[TakeDown] to initiate a standard takedown\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>When another enemy is in <font color="#94ffa8">range</font> the [KnifeThrow] prompt will appear <font color="#94ffa8">over his head</font>\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [KnifeThrow] to <font color="#94ffa8">throw the shuriken</font> and kill him\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Awards <font color="#94ffa8">extra</font> CP for each kill
+VR: 
+
+#179554  WIKI_TUTO_JOKE_INTRO_DESC
+GAME: PRESS [Accept] TO MAKE THESE PATRONIZING SCREENS GO AWAY
+VR: ОТКЛЮЧИТЕ ВСЕ ЭЛЕМЕНТЫ ИНТЕРФЕЙСА В НАСТРОЙКАХ ИГРЫ, ВЕДЬ КИБЕРСОЛДАТУ НЕ НУЖНЫ ПОДСКАЗКИ, ВЕРНО? ВЕРНО? (СЕРЬЁЗНО, В VR ОНИ МЕШАЮТ)
+
+#179643  WIKI_TUTO_DRAGON_CYBERHEART_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>The Blood Dragons are attracted to Cyborg Hearts\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Harvest a Cyber-heart from a dead Omega Force soldier and use it to draw the Dragon away\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Cyber-hearts are thrown with [ThrowLure]
+VR: 
+
+; ----------------------------------------------------------------
+; SKILLS
+; ----------------------------------------------------------------
+
+#172091  HUDPOPUP_SKILLSPOINTS2
+GAME: Press [Start]
+VR: 
+
+#83980  SKILL_ABILITY_DESC_FASTERWEAPONHANDLING
+GAME: Bring up iron sights with [IronSight] more quickly and switch weapons faster.
+VR: 
+
+#83950  SKILL_ABILITY_DESC_SPRINTRELOAD
+GAME: Hold [Reload] to reload a weapon while sprinting.
+VR: 
+
+#149213  SKILL_ABILITY_DESC_IMPROVEDMANUALHEAL2
+GAME: Without NANO-MEDS, hold [Heal] to perform basic repair and heal %d slots of health.
+VR: 
+
+#83947  SKILL_ABILITY_DESC_IMPROVEDMANUALHEAL
+GAME: Without NANO-MEDS, hold [Heal] to perform basic repair and heal %d slots of health.
+VR: 
+
+#83965  SKILL_ABILITY_DESC_HEAVYTAKEDOWN
+GAME: Click [TakeDown] to kill a heavy gunner or flamer.\nx5 XP per kill.
+VR: 
+
+#83976  SKILL_ABILITY_DESC_PISTOLMARKSMANTAKEDOWN
+GAME: Steal an enemy's pistol after a takedown by pressing [IronSight] and use it to kill nearby enemies with [Fire].\nx5 XP per pistol kill.
+VR: 
+
+#83945  SKILL_ABILITY_DESC_AIMEDRELOAD
+GAME: Press [Reload] to quickly reload any pistol or sniper rifle while using [IronSight] to aim.
+VR: 
+
+#83987  SKILL_ABILITY_DESC_STEADYAIMB
+GAME: Click [SteadyAim] to steady the crosshair 4x longer when looking through a scope.
+VR: 
+
+#83939  SKILL_ABILITY_DESC_STEADYAIMA
+GAME: Click [SteadyAim] to steady the crosshair 2x longer when looking through a scope.
+VR: 
+
+; ----------------------------------------------------------------
+; PAUSE MENU - SKILLS
+; ----------------------------------------------------------------
+
+#180164  WIKI_TUTO_SKILLS_RANK2_DESC
+GAME: <font color="#94ffa8">LEVEL 2: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 3: QUICK SWAP</font>\nBring up iron sights with [IronSight] more quickly and switch weapons faster.\n\n<font color="#94ffa8">LEVEL 4: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 5: SNIPER ARCHERY</font>\nImprove stability with the bow when lining up a shot.
+VR: 
+
+#180165  WIKI_TUTO_SKILLS_RANK3_DESC
+GAME: <font color="#94ffa8">LEVEL 6: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 7: IMPROVED BASIC REPAIR</font>\nIf out of NANO-MEDS, hold [Heal] to perform basic repair and heal 3 slots of health.\n\n<font color="#94ffa8">LEVEL 8: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 9: RUNNING RELOAD</font>\nHold [Reload] to reload a weapon while sprinting.
+VR: 
+
+#180167  WIKI_TUTO_SKILLS_RANK5_DESC
+GAME: <font color="#94ffa8">LEVEL 14: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 15: HEAVY BEATDOWN</font>\nPress [TakeDown] to kill a heavy gunner or flamer.\n\n<font color="#94ffa8">LEVEL 16: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 17: EXPERT BASIC REPAIR</font>\nIf out of NANO-MEDS, hold [Heal] to perform basic repairs and heal 4 slots of health.
+VR: 
+
+#180168  WIKI_TUTO_SKILLS_RANK6_DESC
+GAME: <font color="#94ffa8">LEVEL 18: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 19: SIGHT LOADER</font>\nPress [Reload] to quickly reload any pistol or sniper rifle while using [IronSight] to aim.\n\n<font color="#94ffa8">LEVEL 20: HEALTH BAR +</font>\nGain an additional health slot.\n\n<font color="#94ffa8">LEVEL 21: GRENADE TAKEDOWN</font>\nPull the pin on an enemy's grenade, then kick him away by pressing [Throw] after a takedown.
+VR: 
+
+#180289  WIKI_TUTO_SKILLS_RANK8_DESC
+GAME: <font color="#94ffa8">LEVEL 26: INTERNAL GYROS</font>\nReceive less damage from animal attacks and reduces the chance of being knocked down by enemies.\n\n<font color="#94ffa8">LEVEL 27: GUNSLINGER TAKEDOWN</font>\nSteal an enemy's pistol after a takedown by pressing [IronSight], and use it to kill nearby enemies with [Fire].\n\n<font color="#94ffa8">LEVEL 28: COMBAT ARCHERY</font>\nDraw and fire arrows 50% faster.\n\n<font color="#94ffa8">LEVEL 29: NANO-WEAVE PROTECTION</font>\nInternal modifications increase the damage-absorbing capacity of body armor by 50%.
+VR: 
+
+; ----------------------------------------------------------------
+; LOADING SCREEN
+; ----------------------------------------------------------------
+
+#111741  LOADINGSCREEN_NO_DROWNING
+GAME: Bet your character can hold his breath longer than you.
+VR: 
+
+#153148  LOADINGSCREEN_TIP7
+GAME: Hold Throw to <font color="#94ffa8"> _ _ _ _</font> grenades. Can you guess what the word is?
+VR: 
+
+#166574  LOADINGSCREEN_TIP90
+GAME: You should be able to throw a die. Press stuff until it happens.
+VR: 
+
+; ----------------------------------------------------------------
+; MESSAGEBOX
+; ----------------------------------------------------------------
+
+#163419  MGBOX_NOATTACH
+GAME: NO ATTACHMENTS AVAILABLE FOR THIS WEAPON.\n[TabRight] VIEW PAINT JOBS.
+VR: 
+
+; ----------------------------------------------------------------
+; CONTROLS - ON FOOT
+; ----------------------------------------------------------------
+
+#152241  EMANUAL_CONTROLS_LOOKMOVE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Move] to <font color="#94ffa8">move</font>, and [Aim] to <font color="#94ffa8">look around</font>.\n<br>
+VR: 
+
+#155156  EMANUAL_CONTROLS_FIREAIM_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Fire] to <font color="#94ffa8">shoot</font> your weapon and [IronSight] to <font color="#94ffa8">aim down</font> the sights.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">Different weapons</font> have different <font color="#94ffa8">firing types</font> that can be modified with attachments.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/><font color="#94ffa8">Aiming down</font> the sight of your weapon zooms in your view and gives you more <font color="#94ffa8">precision</font>.\n<br>
+VR: 
+
+#155160  EMANUAL_CONTROLS_THROW_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Throw] to <font color="#94ffa8">throw</font> a grenade (or Molotox, if selected).\n<br>
+VR: 
+
+#151995  EMANUAL_CONTROLS_RELOAD_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Reload] to <font color="#94ffa8">reload</font> your weapon. Weapons will automatically reload when their clips are empty.\n<br>
+VR: 
+
+#154979  EMANUAL_CONTROLS_INTERACT_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Interact] when you see the prompt to <font color="#94ffa8">interact</font> with objects in the world and perform actions such as opening doors, swapping weapons, and picking up items.\n<br>
+VR: 
+
+#155150  EMANUAL_CONTROLS_HEALING_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Heal] to <font color="#94ffa8">heal</font> yourself. If you have <font color="#94ffa8">Nano-Meds</font>, you will heal a <font color="#94ffa8">large amount</font> of damage quickly.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Nano-Meds can be purchased in <font color="#94ffa8">stores</font> or found lying around in the world.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>If you <font color="#94ffa8">run out</font> of Nano-Meds, holding [Heal] will perform <font color="#94ffa8">Basic Repair</font>, which heals you for <font color="#94ffa8">free</font>, but heals you <font color="#94ffa8">less</font> and <font color="#94ffa8">takes longer to perform</font>. You can use Basic Repair to heal as often as you need to.\n<br>
+VR: 
+
+#155178  EMANUAL_CONTROLS_MELEE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [TakeDown] to perform a <font color="#94ffa8">melee attack</font> with your tanto.\n<br>
+VR: 
+
+#155180  EMANUAL_CONTROLS_TAKEDOWN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>From the start, you master a variety of <font color="#94ffa8">Takedown skills</font> performed by pressing [TakeDown]. They are the most efficient way to dispatch enemies, done stealthily. As you obtain CP and level up, you will learn more powerful Takedown techniques.\n<br>
+VR: 
+
+#155158  EMANUAL_CONTROLS_WEAPONWHEEL_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [GadgetWheel] to open the <font color="#94ffa8">weapon selector</font>.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [WeaponWheelSelect] to select a gun, grenade type, or explosive type, and release [GadgetWheel] to equip it.\n<br>
+VR: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Потянитесь к бедру или за плечо и сожмите <font color="#94ffa8">правый grip</font>, чтобы достать оружие.
+
+#157813  EMANUAL_CONTROLS_WEAPONSWAP_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [SwitchWeapon] to <font color="#94ffa8">swap</font> your <font color="#94ffa8">current weapon</font> with the <font color="#94ffa8">previous one</font>.\n<br>
+VR: 
+
+#155176  EMANUAL_CONTROLS_RUN_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press and hold [Run] while moving to <font color="#94ffa8">sprint</font>.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>You will sprint quickly at first and then slow to a steady jogging pace.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>You can also press and hold [Run] while swimming to <font color="#94ffa8">swim faster</font>.\n<br>
+VR: 
+
+#180543  EMANUAL_CONTROLS_RUN_DESC_PC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Run] while moving to <font color="#94ffa8">sprint</font>.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>You will sprint quickly at first and then slow to a steady jogging pace.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>You can also press [Run] while swimming to <font color="#94ffa8">swim faster</font>.\n<br>
+VR: 
+
+#154981  EMANUAL_CONTROLS_JUMP_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Jump] to <font color="#94ffa8">jump</font>.\n<br>
+VR: 
+
+#155152  EMANUAL_CONTROLS_CROUCH_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Crouch] to <font color="#94ffa8">crouch</font>. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>When crouched, you make <font color="#94ffa8">less noise</font> when <font color="#94ffa8">moving</font>, and enemies have a harder time detecting you.\n<br>
+VR: 
+
+#158057  EMANUAL_CONTROLS_CLIMB_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Climb] when you see the on-screen prompt to begin climbing an object. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Move] to <font color="#94ffa8">climb up</font> and <font color="#94ffa8">down</font>.\n<br>
+VR: 
+
+#155168  EMANUAL_CONTROLS_CYBEREYE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [EquipCamera] to turn on/off your <font color="#94ffa8">cyber-eye</font>. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>See the <font color="#94ffa8">Controls - Cyber-eye</font> section for more details.\n<br>
+VR: 
+
+#155170  EMANUAL_CONTROLS_DICE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [ThrowRock] to <font color="#94ffa8">throw a dice</font>. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Dice create noise, which can <font color="#94ffa8">distract enemies</font>.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use this opportunity to sneak past them, or sneak up on them and kill them with a <font color="#94ffa8">Takedown</font>.\n<br>
+VR: 
+
+#177290  EMANUAL_CONTROLS_LURE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [ThrowLure] to <font color="#94ffa8">throw a cyber-heart</font>. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Cyber-hearts will still pump fluid, creating noise and <font color="#94ffa8">attracting dragons</font>. They can even be used to distract a dragon while fighting it.\n<br>
+VR: 
+
+#154975  EMANUAL_CONTROLS_PAUSE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Start] to <font color="#94ffa8">pause</font> the game and access the <font color="#94ffa8">Pause menu</font>.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Sometimes [Start] is also used as a shortcut to access other menus - look for the on-screen prompts.\n<br>
+VR: 
+
+#154977  EMANUAL_CONTROLS_MAP_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [WorldMap] to open the <font color="#94ffa8">World Map</font>.
+VR: 
+
+; ----------------------------------------------------------------
+; CONTROLS - IN VEHICLE
+; ----------------------------------------------------------------
+
+#159309  EMANUAL_CONTROLS_VEHICLE_ENTEREXIT_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [HoldEnterExit] to <font color="#94ffa8">enter</font> or <font color="#94ffa8">exit</font> a vehicle. If a vehicle is moving when you exit, you may get hurt.\n<br>
+VR: 
+
+#155185  EMANUAL_CONTROLS_VEHICLE_ACCELERATE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [Accelerate] to <font color="#94ffa8">accelerate</font> and hold [Brake] to <font color="#94ffa8">brake</font>. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>When a vehicle is stopped, hold [Brake] to <font color="#94ffa8">reverse</font>.\n<br>
+VR: 
+
+#155347  EMANUAL_CONTROLS_VEHICLE_MOVE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Steer] to <font color="#94ffa8">steer</font> a vehicle left and right.\n<br>
+VR: 
+
+#158768  EMANUAL_CONTROLS_VEHICLE_HANDBRAKE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [HandBrake] to <font color="#94ffa8">handbrake</font> and make a vehicle come to a complete stop. \n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Handbrake at high speeds to <font color="#94ffa8">drift</font>.\n<br>
+VR: 
+
+#155349  EMANUAL_CONTROLS_VEHICLE_LOOK_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Look] to <font color="#94ffa8">look</font> around while in a vehicle.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [LookDown] to look <font color="#94ffa8">behind you</font>.\n<br>
+VR: 
+
+#158770  EMANUAL_CONTROLS_VEHICLE_SWITCHSEATS_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [SwitchSeats] to <font color="#94ffa8">switch</font> between the <font color="#94ffa8">driver's seat</font> and the <font color="#94ffa8">mounted gun</font> (in supported vehicles only).\n<br>
+VR: 
+
+#158776  EMANUAL_CONTROLS_VEHICLE_RADIOONOFF_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [Radio] to turn the <font color="#94ffa8">radio on</font> or <font color="#94ffa8">off</font>.\n<br>
+VR: 
+
+#172108  EMANUAL_CONTROLS_VEHICLE_NEXTSONG_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [NextSong] for <font color="#94ffa8">next song</font>.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; CONTROLS - IN AIR
+; ----------------------------------------------------------------
+
+#159311  EMANUAL_CONTROLS_AIR_ENTEREXIT_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Hold [HoldEnterExit] to <font color="#94ffa8">board</font> a <font color="#94ffa8">glider</font>. You will automatically launch the glider and begin flying.\n<br>
+VR: 
+
+#158753  EMANUAL_CONTROLS_AIR_PITCHANDSTEER_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Steer] to change the pitch of a glider or to <font color="#94ffa8">steer</font> it left and right.\n<br>
+VR: 
+
+#158818  EMANUAL_CONTROLS_AIR_LOOK_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Look] to <font color="#94ffa8">look around</font> while gliding.\n<br>
+VR: 
+
+#159313  EMANUAL_CONTROLS_AIR_LANDGLIDER_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Look] to look down to the ground to have the possibility to exit the glider by holding [Interact].\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>If your angle of approach is too steep, you may crash the glider, which is great for laughs.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>You can <font color="#94ffa8">bail in mid-air</font> by holding [Interact] but if you fall too far you won't die, you cyber-stud.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; CONTROLS - CYBEREYE
+; ----------------------------------------------------------------
+
+#159315  EMANUAL_CONTROLS_CYBEREYE_USE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [EquipCamera] to turn on/off your cyber-eye.\n<img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>The <font color="#94ffa8">cyber-eye</font> is mainly used to <font color="#94ffa8">tag</font> and <font color="#94ffa8">track enemies</font>.\n<br>
+VR: 
+
+#158820  EMANUAL_CONTROLS_CYBEREYE_LOOK_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Look] to <font color="#94ffa8">aim</font> the cyber-eye.\n<br>
+VR: 
+
+#158051  EMANUAL_CONTROLS_CYBEREYE_ZOOMING_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [ZoomIn] and [ZoomOut] to <font color="#94ffa8">zoom in</font> and <font color="#94ffa8">out</font> when using the cyber-eye.\n<br>
+VR: 
+
+#158822  EMANUAL_CONTROLS_CYBEREYE_MOVE_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Use [Move] to <font color="#94ffa8">move</font> while in cyber-eye mode. Note: you will move at a <font color="#94ffa8">reduced speed</font>.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; CONTROLS - SOCIAL
+; ----------------------------------------------------------------
+
+#159608  EMANUAL_CONTROLS_NEWSFEED_FOCUS_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [NewsFeed] to <font color="#94ffa8">switch</font> to the <font color="#94ffa8">News Feed</font>.\n<br>
+VR: 
+
+#159610  EMANUAL_CONTROLS_NEWSFEED_SCROLL_DESC
+GAME: <img src="MC_TX_Bullet_List" vspace='0' hspace='0'/>Press [MenuUp] and [MenuDown] to move the cursor up and down the news feed.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; EMANUAL - HEALTH SYSTEM
+; ----------------------------------------------------------------
+
+#159494  EMANUAL_GAMEPLAY_HEALTH_DESC
+GAME: Your health is shown <font color="#94ffa8">under the minimap</font> as a series of <font color="#94ffa8">white bars</font>. As you take damage, the bars will drain.\n\nYour health <font color="#94ffa8">regenerates</font> the nearest <font color="#94ffa8">partially-depleted</font> bar, but you can only heal empty bars by holding [Heal] to use <font color="#94ffa8">Nano-Meds</font>. If you <font color="#94ffa8">run out</font> of Nano-Meds, you can still hold [Heal] heal for <font color="#94ffa8">free</font> at any time, which will trigger Basic Repair, but this is <font color="#94ffa8">slower</font> than other methods and does <font color="#94ffa8">not recover</font> as much health.\n\nBy accumulating enough cyber points (CP) to level up, additional <font color="#94ffa8">health slots</font> are awarded at a steady pace. Other skills can <font color="#94ffa8">speed up</font> health <font color="#94ffa8">regeneration</font> and <font color="#94ffa8">boost</font> your defenses.\n\nYou can buy <font color="#94ffa8">Nano-Meds</font> in <img src="MC_TX_Shop" vspace='0' hspace='0'/><font color="#94ffa8">stores</font>, but you should also buy <img src=" MC_TX_BodyArmor " vspace='0' hspace='0'/><font color="#94ffa8">body armor</font> when possible to give yourself an additional layer of protection.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; GAMEPLAY - COMBAT
+; ----------------------------------------------------------------
+
+#159581  EMANUAL_GAMEPLAY_COMBAT
+GAME: You'll spend most of your time in Far Cry® 3 Blood Dragon getting in or out of firefights. Here are some of the ways you can keep the situation under control.\n\nCheck your <font color="#94ffa8">detection meter</font>. When <font color="#94ffa8">enemies</font> start to <font color="#94ffa8">detect you</font>, don't be afraid to fall back and find another way through, or create a distraction by throwing a die.\n\nUse <font color="#94ffa8">cover</font>. If it looks like you can hide behind it, you can probably use it as cover. Stay <font color="#94ffa8">crouched</font>, and don't forget to check out the situation by using [IronSight] to quickly peek out around edges and corners.\n\nLook for opportunities. Keep an eye out for vantage points, ziplines, getaway vehicles, explosive fuel drums and cover points as you prepare for battle.\n\n<font color="#94ffa8">Track</font> your enemies. You can <font color="#94ffa8">tag enemies</font> from a distance with your <font color="#94ffa8">cyber-eye</font>, or tag up close by aiming at them with [IronSight] when they are within the optimal range of your weapon.\n\nStay healthy. Keep a supply of <font color="#94ffa8">nano-meds</font> for <font color="#94ffa8">quick healing</font>, or be prepared to take the time to perform <font color="#94ffa8">Basic Repair</font>.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; GAMEPLAY - STEALTH
+; ----------------------------------------------------------------
+
+#159616  EMANUAL_GAMEPLAY_STEALTH_TOOLS_DESC
+GAME: There are plenty of <font color="#94ffa8">weapons</font> and <font color="#94ffa8">tools</font> at your disposal to aid <font color="#94ffa8">stealthy gameplay</font>:\nHandgun supports <font color="#94ffa8">sound suppressor</font> attachments for near-silent weapon kills.\nThe <font color="#94ffa8">bow</font> is a deadly weapon that often kills enemies with just one arrow in complete <font color="#94ffa8">silence</font>.\n<font color="#94ffa8">Throwing dice</font> with [ThrowRock] can create noise that will <font color="#94ffa8">distract enemies</font> and allow you to sneak past them or sneak up on them.\n<font color="#94ffa8">Tag enemies</font> with the <font color="#94ffa8">cyber-eye</font> to track their position as you sneak around them.\n\nThe <font color="#94ffa8">Stealth band color</font> display shows you the Dragon’s current <font color="#94ffa8">Alert State</font>. <font color="#94ffa8">Green</font> means the Dragon is in Idle, <font color="#94ffa8">Yellow</font> means the Dragon is in Alert and <font color="#94ffa8">Red</font> means the Dragon is in Combat. \n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; OPENWORLD - FAST TRAVEL
+; ----------------------------------------------------------------
+
+#159661  EMANUAL_OPENWORLD_FASTTRAVEL_DESC
+GAME: Liberated <img src="MC_TX_Fast_Travel" vspace='0' hspace='0'/>garrisons allow you to use <font color="#94ffa8">fast travel</font>. Open the <font color="#94ffa8">world map</font> with [WorldMap] then move the <font color="#94ffa8">map cursor</font> over a <font color="#94ffa8">liberated garrison</font>, and press [Accept] to fast travel there.\n<br>
+VR: 
+
+; ----------------------------------------------------------------
+; TUTORIAL TEXTS WITHOUT BUTTONS (added 23 Nov)
+; ----------------------------------------------------------------
+
+#174171  MISSN010_TUTO_TAGGING2
+GAME: TAG BY ENGAGING YOUR OCULAR SENSE AND ZOOMING OVER A TARGET UNTIL IT IS HIGHLIGHTED.
+VR: ОТМЕЧАЙТЕ, ПОДНЕСЯ ЛЕВЫЙ КОНТРОЛЛЕР К ЛЕВОЙ СТОРОНЕ ШЛЕМА, ЗАТЕМ УДЕРЖИВАЙТЕ ЛЕВЫЙ GRIP
+
+#180269  MISSN010_TUTO_JOKE2
+GAME: TIRED OF TUTORIALS? UPGRADE NOW TO KOBAYASHI TUTORIAL PREMIUM AND LET US PLAY THE GAME FOR YOU!
+VR: УСТАЛИ ОТ ЖИЗНИ НА ОБЫЧНОЙ СКОРОСТИ? ПРИЖМИТЕ ЛЕВЫЙ GRIP К ЧАСАМ НА ПОЯСЕ, ЧТОБЫ ВКЛЮЧИТЬ СУПЕР-КИБЕР-ЗАМЕДЛЕНИЕ (ПРИМЕЧАНИЕ: ШТАТУ КАЛИФОРНИЯ ИЗВЕСТНО, ЧТО ЭТО ВЫЗЫВАЕТ РАК)

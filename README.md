@@ -1,11 +1,11 @@
 # Blood Dragon VR
 
-A VR mod for **Far Cry 3 Blood Dragon** (Steam version) for PC VR headsets: full 6DoF head tracking
+A VR mod for **Far Cry 3 Blood Dragon** (Steam or Ubisoft Connect version) for PC VR headsets: full 6DoF head tracking
 through OpenXR, motion-controlled guns, VR hands and arms, two-handed aiming, rifle scopes, bow and
 arrows, throwing, holsters on your body, the cyber-eye, slow motion, a synthwave VR settings menu and
 plenty more.
 
-**Version 0.72 BETA** (mod build bd163). Beta, like its author.
+**Version 0.73 BETA** (mod build bd173). Beta, like its author.
 
 Vibe coded with Claude by the submissive lab-rat DrGonzaga.
 
@@ -21,9 +21,11 @@ Vibe coded with Claude by the submissive lab-rat DrGonzaga.
 
 ## Requirements
 
-- **Far Cry 3 Blood Dragon on Steam**, fully updated, started once without the mod. The mod finds the
-  game's code by its exact bytes in `FC3_d3d11.dll` (Steam build of 17 Oct 2019, 28,693,672 bytes).
-  Ubisoft Connect, GOG or older patches are untested and will most likely not work.
+- **Far Cry 3 Blood Dragon on Steam or Ubisoft Connect**, fully updated, started once without the mod. The mod
+  finds the game's code by its exact bytes in `FC3_d3d11.dll`: the Steam build of 17 Oct 2019 (28,693,672 bytes)
+  or the Ubisoft Connect build of 7 Dec 2021 (28,687,360 bytes; the same code linked in another order, so the mod
+  translates its addresses with `mod/src/gamever_ubi.inc`). GOG or older patches are untested and will most likely
+  not work.
 - **A PC VR headset with a 32-bit OpenXR runtime** (the game is 32-bit). Developed and tested on a
   Quest 3 with Virtual Desktop, using Virtual Desktop's own runtime, **VDXR**. Other headsets and
   runtimes should work if their runtime supports 32-bit apps, but are untested.
@@ -31,12 +33,12 @@ Vibe coded with Claude by the submissive lab-rat DrGonzaga.
 
 ## Install (download)
 
-Download `BloodDragonVR-v0.72-BETA.zip` from [Releases](https://github.com/DrGonzaga/blood-dragon-vr/releases) or Nexus Mods and unzip it.
+Download `BloodDragonVR-v0.73-BETA.zip` from [Releases](https://github.com/DrGonzaga/blood-dragon-vr/releases) or Nexus Mods and unzip it.
 
 **With Setup (easiest)**
 
 1. Close the game.
-2. Run `BloodDragonVR-Setup-v0.72-BETA.exe`. It is not code-signed, so Windows may say
+2. Run `BloodDragonVR-Setup-v0.73-BETA.exe`. It is not code-signed, so Windows may say
    "Windows protected your PC": click **More info**, then **Run anyway**, then **Yes** on the
    administrator prompt.
 3. Choose **Install**, check the game folder it found (it asks Steam), and press **INSTALL NOW**.
@@ -108,7 +110,7 @@ Open PowerShell as administrator and run `wsl --install -d Ubuntu`, restart if a
 Output: `mod/build/fc3vr.dll` (about 4 MB). `NAME` is just the name written on the first line of the
 mod's log, so you can tell builds apart. `make clean` starts again from scratch.
 
-To reproduce the released v0.72 BETA exactly, use `NAME=bd163-tightoff`: the result is byte-for-byte
+To reproduce the released v0.73 BETA exactly, use `NAME=bd173-walkhands4-lang1`: the result is byte-for-byte
 identical to the released `version.dll` except the link timestamps in the PE headers.
 
 ### 5. Build the installer (optional)
@@ -121,8 +123,8 @@ identical to the released `version.dll` except the link timestamps in the PE hea
 Output: `installer/out/BloodDragonVR-Setup-my-build.exe` and the release zip
 `installer/release/BloodDragonVR-my-build.zip`. The release itself was built with:
 
-    sh build.sh v0.72-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.72 BETA (bd163)"
-    sh make_release.sh v0.72-BETA bd163
+    sh build.sh v0.73-BETA ../mod/build/fc3vr.dll src/default-fc3vr.ini pictures "v0.73 BETA (bd173)"
+    sh make_release.sh v0.73-BETA bd173
 
 `build.sh` embeds the DLL, the default settings (`src/default-fc3vr.ini` with the forced values in
 `src/shipped-overrides.txt`, applied by `make_ini.py`), every file in `pictures/`, the VR prompt texts (`prompts/bdvr-prompts.txt`) and a PDF made from
@@ -172,7 +174,7 @@ the original exe if you 4 GB-patched it.
 - **Game crashes at start-up on a CPU with 32 or more threads:** that is a bug in the game itself.
   From v0.70 the mod works around it, so you don't need Windows' compatibility fix. If you already set
   that fix up, Setup installs the mod as `dinput8.dll` instead, because the fix stops `version.dll` loading.
-- **Button prompts:** the game's on-screen prompts use the VR controls from `bin\bdvr-prompts.txt`.
+- **Button prompts:** the game's on-screen prompts use the VR controls from `bin\bdvr-prompts.txt`. In another game language the mod uses `bin\bdvr-prompts-<Language>.txt` (`[hud] PromptLanguage` in `fc3vr.ini` forces one).
   You can edit that file (it's plain text) while the game runs; changes show within a second.
 
 ## What the mod and Setup do to your PC
@@ -203,7 +205,7 @@ the original exe if you 4 GB-patched it.
 | `mod/Makefile` | Build of `fc3vr.dll`. |
 | `installer/src/` | `setup.cpp` (the installer), its resources, the default `fc3vr.ini`, Setup tips. |
 | `installer/pictures/` | Menu font and controls pictures installed to `bin\bdvr-pictures`. |
-| `installer/prompts/` | `bdvr-prompts.txt`, the VR wording for the game's button prompts, installed to `bin\`. |
+| `installer/prompts/` | `bdvr-prompts.txt`, the VR wording for the game's button prompts, installed to `bin\`; `lang/bdvr-prompts-<Language>.txt` for Italian, French, German, Spanish, Russian and Polish. |
 | `installer/release-docs/` | README and notices that go into the release zip. |
 
 No game files are included. Far Cry 3 Blood Dragon is (c) Ubisoft; this project is not affiliated

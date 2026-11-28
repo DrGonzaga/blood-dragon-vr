@@ -902,8 +902,8 @@ void __attribute__((thiscall)) BowUpdate(BYTE *self, float dt) {
 // properties +0x640) and the properties 0x38 further on (deviation multipliers +0x75c / +0x760,
 // fPrimeTime +0x764: from the property registrations at 0x104471db, 0x10447211, 0x10447103).
 void BowInstallBd(BYTE *bd) {
-    void **slot = (void **)(bd + 0x158d960);
-    BYTE *want = bd + 0x590778;
+    void **slot = (void **)(BdAt(bd, 0x158d960));
+    BYTE *want = BdAt(bd, 0x590778);
     static const BYTE kPro[8] = {0x55, 0x8b, 0xec, 0xf3, 0x0f, 0x10, 0x45, 0x08};
     if (IsBadReadPtr(slot, 4) || *slot != (void *)want || memcmp(want, kPro, 8)) {
         Log("bow: Blood Dragon's bow update not where expected; draw follows the game's own timing");

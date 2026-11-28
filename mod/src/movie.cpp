@@ -79,7 +79,7 @@ void __stdcall Loop(void *h, int on) {
     g_loop(h, on);
 }
 bool Slot(BYTE *bd, DWORD va, const char *name, void *hook, void **orig) {
-    void **slot = (void **)(bd + (va - 0x10000000));
+    void **slot = (void **)BdAt(bd, va);
     HMODULE bk = GetModuleHandleW(L"binkw32.dll");
     void *want = bk ? (void *)GetProcAddress(bk, name) : nullptr;
     if (IsBadReadPtr(slot, 4) || !want || *slot != want) {

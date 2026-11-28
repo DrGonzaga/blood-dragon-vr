@@ -248,8 +248,8 @@ void PeekApply() {
     if (!g_peekOk) return;
     static const BYTE o1[6] = {0x80, 0x7b, 0x48, 0x00, 0x74, 0x2f}, o2[6] = {0x80, 0x7b, 0x48, 0x00, 0x74, 0x1c};
     static const BYTE n1[6] = {0xeb, 0x33, 0x90, 0x90, 0x90, 0x90}, n2[6] = {0xeb, 0x20, 0x90, 0x90, 0x90, 0x90};
-    PatchBytes(g_fc3 + (0x10432bb0 - kImageBase), g_peekOff ? n1 : o1, 6);
-    PatchBytes(g_fc3 + (0x10432bc3 - kImageBase), g_peekOff ? n2 : o2, 6);
+    PatchBytes(BdAt(g_fc3, 0x10432bb0), g_peekOff ? n1 : o1, 6);
+    PatchBytes(BdAt(g_fc3, 0x10432bc3), g_peekOff ? n2 : o2, 6);
     Log("bonehook: game's lift over cover when firing %s", g_peekOff ? "OFF" : "on");
 }
 
@@ -332,11 +332,11 @@ float __attribute__((thiscall)) BdSpreadHook(void *weapon) {
 }
 
 bool BdCallIs(BYTE *fc3, DWORD site, DWORD target) {
-    BYTE *c = fc3 + (site - kImageBase);
-    return c[0] == 0xe8 && c + 5 + *(int *)(c + 1) == fc3 + (target - kImageBase);
+    BYTE *c = BdAt(fc3, site);
+    return c[0] == 0xe8 && c + 5 + *(int *)(c + 1) == BdAt(fc3, target);
 }
 ShotFn BdWrap(BYTE *fc3, DWORD at) {
-    BYTE *fn = fc3 + (at - kImageBase);
+    BYTE *fn = BdAt(fc3, at);
     if (memcmp(fn, kBdPrologue, sizeof kBdPrologue)) return nullptr;
     BYTE *t = (BYTE *)VirtualAlloc(nullptr, 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!t) return nullptr;
@@ -350,21 +350,21 @@ ShotFn BdWrap(BYTE *fc3, DWORD at) {
 void BoneHookInstallBd(BYTE *fc3) {
     g_fc3 = fc3;
     static const BYTE kQuatGet[9] = {0x55, 0x8b, 0xec, 0x8b, 0x45, 0x08, 0x56, 0x57, 0x8d};
-    if (memcmp(fc3 + (kBdBoneFn - kImageBase), kBdPrologue, sizeof kBdPrologue) || !BdCallIs(fc3, kBdCamCall, kBdBoneFn) ||
-        memcmp(fc3 + (kBdQuatGet - kImageBase), kQuatGet, sizeof kQuatGet) || !BdCallIs(fc3, kBdFire1, kBdQuatGet) ||
+    if (memcmp(BdAt(fc3, kBdBoneFn), kBdPrologue, sizeof kBdPrologue) || !BdCallIs(fc3, kBdCamCall, kBdBoneFn) ||
+        memcmp(BdAt(fc3, kBdQuatGet), kQuatGet, sizeof kQuatGet) || !BdCallIs(fc3, kBdFire1, kBdQuatGet) ||
         !BdCallIs(fc3, kBdFire2, kBdQuatGet)) {
         Log("bonehook: Blood Dragon look bone code doesn't match; motion aiming off");
         return;
     }
-    g_bdBone = (BdBoneFn)(void *)(fc3 + (kBdBoneFn - kImageBase));
-    g_bdQuat = (BdQuatFn)(void *)(fc3 + (kBdQuatGet - kImageBase));
-    PatchCallTo(fc3 + (kBdCamCall - kImageBase), (void *)BdCamBone);
-    PatchCallTo(fc3 + (kBdFire1 - kImageBase), (void *)BdFireQuat1);
-    PatchCallTo(fc3 + (kBdFire2 - kImageBase), (void *)BdFireQuat2);
+    g_bdBone = (BdBoneFn)(void *)(BdAt(fc3, kBdBoneFn));
+    g_bdQuat = (BdQuatFn)(void *)(BdAt(fc3, kBdQuatGet));
+    PatchCallTo(BdAt(fc3, kBdCamCall), (void *)BdCamBone);
+    PatchCallTo(BdAt(fc3, kBdFire1), (void *)BdFireQuat1);
+    PatchCallTo(BdAt(fc3, kBdFire2), (void *)BdFireQuat2);
     Log("bonehook: look bone hooked (BD+%08lx camera call, shot reads BD+%08lx and BD+%08lx)", kBdCamCall, kBdFire1, kBdFire2);
     if (BdCallIs(fc3, kBdSpreadCall, kBdSpreadFn)) {
-        g_bdSpread = (BdSpreadFn)(void *)(fc3 + (kBdSpreadFn - kImageBase));
-        PatchCallTo(fc3 + (kBdSpreadCall - kImageBase), (void *)BdSpreadHook);
+        g_bdSpread = (BdSpreadFn)(void *)(BdAt(fc3, kBdSpreadFn));
+        PatchCallTo(BdAt(fc3, kBdSpreadCall), (void *)BdSpreadHook);
         Log("bonehook: hip-fire spread hooked (BD+%08lx), %.0f%% of the game's", kBdSpreadCall, g_hipSpread * 100);
     } else {
         Log("bonehook: Blood Dragon hip-fire spread code doesn't match; off");
@@ -372,13 +372,13 @@ void BoneHookInstallBd(BYTE *fc3) {
     g_shotOrig = BdWrap(fc3, kBdShot1);
     g_shotOrig2 = BdWrap(fc3, kBdShot2);
     if (g_shotOrig && g_shotOrig2) {
-        PatchJmp(fc3 + (kBdShot2 - kImageBase), (void *)ShotHook2, 5);
-        PatchJmp(fc3 + (kBdShot1 - kImageBase), (void *)ShotHook, 5);
+        PatchJmp(BdAt(fc3, kBdShot2), (void *)ShotHook2, 5);
+        PatchJmp(BdAt(fc3, kBdShot1), (void *)ShotHook, 5);
         Log("bonehook: shots start at the beam (BD+%08lx, BD+%08lx)", kBdShot1, kBdShot2);
     } else {
         Log("bonehook: Blood Dragon shot code doesn't match; shots stay at the eye");
     }
-    BYTE *a = fc3 + (kBdPeek1 - kImageBase), *b = fc3 + (kBdPeek2 - kImageBase);
+    BYTE *a = BdAt(fc3, kBdPeek1), *b = BdAt(fc3, kBdPeek2);
     if (memcmp(a, kBdPeekOrig1, 6) || memcmp(b, kBdPeekOrig2, 6)) {
         Log("bonehook: Blood Dragon cover peek code doesn't match; left as the game has it");
     } else {

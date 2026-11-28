@@ -669,7 +669,7 @@ void BowStringInstallBd(BYTE *bd) {
         Log("bowstring: off ([debug] BowStringHook=0)");
         return;
     }
-    BYTE *site = bd + 0x2d10e7, *cf = bd + 0x24409a;
+    BYTE *site = BdAt(bd, 0x2d10e7), *cf = BdAt(bd, 0x24409a);
     static const BYTE kSite[9] = {0x8d, 0x4e, 0x60, 0xf6, 0x41, 0x2c, 0x01, 0x74, 0x41};
     static const BYTE kComp[4] = {0x56, 0x8b, 0xf1, 0xe8};
     if (IsBadReadPtr(site, 9) || memcmp(site, kSite, 9) || memcmp(cf, kComp, 4) || memcmp(cf + 8, "\x83\xc0\x18\x50\x8b\xce\xe8", 7)) {

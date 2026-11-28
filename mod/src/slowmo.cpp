@@ -73,10 +73,10 @@ void Find() {
     if (!g_bloodDragon) { Log("slowmo: only in Blood Dragon (the Far Cry 3 address is not known)"); return; }
     BYTE *mod = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
     if (!mod) { Log("slowmo: FC3_d3d11.dll not loaded; slow motion off"); return; }
-    BYTE *f = mod + 0x1846778;
+    BYTE *f = BdAt(mod, 0x1846778);
     const DWORD sites[2] = {0x5e218, 0x5e231};  // movss xmm1, [debugGlobalScale] (f3 0f 10 0d <addr>), the clock tick
     for (DWORD s : sites) {
-        BYTE *c = mod + s;
+        BYTE *c = BdAt(mod, s);
         if (!Readable(c, 8) || c[0] != 0xf3 || c[1] != 0x0f || c[2] != 0x10 || c[3] != 0x0d || *(BYTE **)(c + 4) != f) {
             Log("slowmo: the game's clock tick does not match at BD+%08lx; slow motion off", (unsigned long)(0x10000000 + s));
             return;

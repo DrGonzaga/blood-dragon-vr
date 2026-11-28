@@ -41,12 +41,16 @@ static const wchar_t* kModFolder = L"BloodDragonVR";
 static const wchar_t* kSetupName = L"BloodDragonVR-Setup.exe";
 static const wchar_t* kUninstKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BloodDragonVR";
 static const wchar_t* kShortcutName = L"Blood Dragon VR.lnk";
+static const wchar_t* kShortcutNameUbi = L"Blood Dragon VR (Ubisoft Connect).lnk";  // ubi2
 static const wchar_t* kOldGuideName = L"Blood Dragon VR controls.html";  // v1 installers wrote this; removed now
 static const wchar_t* kPdfName = L"Blood Dragon VR controls.pdf";  // the controls pictures as one PDF
 static const wchar_t* kPromptsName = L"bdvr-prompts.txt";  // prompts1: bin\\bdvr-prompts.txt
 static const wchar_t* kPicFolder = L"bdvr-pictures";  // bin\bdvr-pictures: the menu's font and controls pictures
 // The Steam copy the mod was made for (FC3_d3d11.dll from the 2019 update). Other copies get a warning, not a block.
 static const DWORD kEngineDllSize = 28693672;
+// ubi1 (GitHub #8, 26 Nov): the Ubisoft Connect copy's own FC3_d3d11.dll (built Dec 2021). The mod knows
+// where everything is in it too (mod gamever.cpp, from bd166).
+static const DWORD kEngineDllSizeUbi = 28687360;
 
 // ---------------------------------------------------------------- helpers
 
@@ -163,6 +167,23 @@ static vector<Pic> pictures() {
     }
     return out;
 }
+// lang1 (bd168): the per-language prompt files (bin\bdvr-prompts-<Language>.txt), listed in IDR_LANGINDEX, file i = IDR_LANG0 + i.
+static vector<Pic> langFiles() {
+    vector<Pic> out;
+    std::string idx = resourceString(IDR_LANGINDEX);
+    size_t p = 0;
+    for (int i = 0; p < idx.size(); i++) {
+        size_t e = idx.find('\n', p);
+        if (e == std::string::npos) e = idx.size();
+        std::string name = idx.substr(p, e - p);
+        while (!name.empty() && (name.back() == '\r' || name.back() == ' ')) name.pop_back();
+        p = e + 1;
+        if (name.empty()) { i--; continue; }
+        Pic f{utf8(name), nullptr, 0};
+        if (resource(IDR_LANG0 + i, &f.data, &f.n)) out.push_back(f);
+    }
+    return out;
+}
 
 static wstring utf8(const std::string& s) {
     if (s.empty()) return {};
@@ -205,7 +226,8 @@ static DWORD engineDllSize(const wstring& g) {
     if (!GetFileAttributesExW((binDir(g) + L"\\FC3_d3d11.dll").c_str(), GetFileExInfoStandard, &a)) return 0;
     return a.nFileSizeLow;
 }
-static bool knownGameVersion(const wstring& g) { return engineDllSize(g) == kEngineDllSize; }
+static bool isUbiCopy(const wstring& g) { return engineDllSize(g) == kEngineDllSizeUbi; }
+static bool knownGameVersion(const wstring& g) { DWORD n = engineDllSize(g); return n == kEngineDllSize || n == kEngineDllSizeUbi; }
 static bool isOurDll(const wstring& p);
 // loader1 (GitHub #1, 23 Nov): the mod can load as version.dll (the default) or dinput8.dll. Players who
 // fix the game's many-thread CPU crash with a Windows compatibility database (ProcessorCountLie) need
@@ -319,7 +341,7 @@ static vector<wstring> findGames() {
     // the copy Steam says is installed comes first (a leftover folder from a moved or old install
     // has no Steam manifest beside it), then a copy that already has the mod
     auto rank = [](const wstring& g) {
-        int r = steamOwns(g) ? 0 : 2;
+        int r = steamOwns(g) || isUbiCopy(g) ? 0 : 2;
         if (!fileExists(stateFile(g)) && !modDllIn(g)) r++;
         return r;
     };
@@ -413,10 +435,24 @@ static int largeAddress(const wstring& exe, int op, wstring* err) {
     return result;
 }
 
-static wstring desktopShortcut() {
+// ubi2: each copy of the game gets its own shortcut and its own entry in Windows' app list, so installing into a
+// second copy (Steam + Ubisoft Connect) no longer takes over the first copy's shortcut and uninstall entry.
+static wstring desktopShortcut(const wstring& g) {
     wchar_t p[MAX_PATH];
     if (FAILED(SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, p))) return {};
-    return wstring(p) + L"\\" + kShortcutName;
+    return wstring(p) + L"\\" + (isUbiCopy(g) ? kShortcutNameUbi : kShortcutName);
+}
+static wstring uninstKey(const wstring& g) { return wstring(kUninstKey) + (isUbiCopy(g) ? L"-Ubisoft" : L""); }
+// ubi2: does this shortcut start this copy of the game? (a .lnk holds its target path, ANSI and/or UTF-16)
+static bool shortcutIsFor(const wstring& lnk, const wstring& g) {
+    std::string d;
+    if (!readFile(lnk, d)) return false;
+    std::string low;
+    for (char c : d) low += (char)(c >= 'A' && c <= 'Z' ? c + 32 : c);
+    wstring want = lower(fullPath(g));
+    std::string a, w;
+    for (wchar_t c : want) a += (char)c, w += (char)c, w += '\0';
+    return low.find(a) != std::string::npos || low.find(w) != std::string::npos;
 }
 static bool makeShortcut(const wstring& lnk, const wstring& target, const wstring& workDir, wstring* err) {
     HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -569,6 +605,22 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
             ui.end(true, have.empty() ? L"" : L"yours backed up");
         }
     }
+    {   // lang1 (bd168): prompt texts for the game's other languages, same keep/backup rule as bdvr-prompts.txt
+        vector<Pic> langs = langFiles();
+        if (!langs.empty()) {
+            ui.begin(L"Prompt texts for other game languages (bdvr-prompts-<Language>.txt)");
+            int kept = 0;
+            for (const Pic& f : langs) {
+                const wstring dst = bin + L"\\" + f.name;
+                std::string have, want((const char*)f.data, f.n);
+                if (readFile(dst, have) && have == want) continue;
+                if (!have.empty() && o.keepIni) { kept++; continue; }
+                if (!have.empty()) CopyFileW(dst.c_str(), (bak + L"\\" + f.name.substr(0, f.name.size() - 4) + L"-" + stamp() + L".txt").c_str(), TRUE);
+                writeFile(dst, f.data, f.n, nullptr);
+            }
+            ui.end(true, kept ? L"kept your edited ones" : L"");
+        }
+    }
 
     ui.begin(L"Khronos OpenXR loader (bin\\openxr_loader.dll, used only with [vr] OpenXrLoader=1)");
     {
@@ -640,7 +692,7 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
 
     ui.begin(L"Desktop shortcut");
     if (o.shortcut) {
-        wstring lnk = desktopShortcut();
+        wstring lnk = desktopShortcut(g);
         if (!lnk.empty() && makeShortcut(lnk, gameExe(g), bin, &err)) { stateSet(g, L"Shortcut", lnk); ui.end(true, L""); }
         else ui.end(false, L"skipped");  // not fatal
     } else {
@@ -658,16 +710,17 @@ static wstring doInstall(const wstring& g, const InstallOptions& o, const Step& 
     writeFile(mod + L"\\" + kPdfName, pdf.data(), pdf.size(), nullptr);
     DeleteFileW((mod + L"\\" + kOldGuideName).c_str());  // the old html guide (out of date; the in-game menu has the controls now)
     stateSet(g, L"Build", kBuild);
-    stateSet(g, L"GameVersion", knownGameVersion(g) ? L"steam-2019" : L"unknown (FC3_d3d11.dll " + std::to_wstring(engineDllSize(g)) + L" bytes)");
+    stateSet(g, L"GameVersion", isUbiCopy(g) ? L"ubisoft-connect-2021" : knownGameVersion(g) ? L"steam-2019" : L"unknown (FC3_d3d11.dll " + std::to_wstring(engineDllSize(g)) + L" bytes)");
     stateSet(g, L"Installed", stamp());
     HKEY k;
     bool regOk = false;
-    if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, kUninstKey, 0, nullptr, 0, KEY_WRITE | KEY_WOW64_64KEY, nullptr, &k, nullptr) == ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, uninstKey(g).c_str(), 0, nullptr, 0, KEY_WRITE | KEY_WOW64_64KEY, nullptr, &k, nullptr) == ERROR_SUCCESS) {
         auto sz = [&](const wchar_t* n, const wstring& v) {
             RegSetValueExW(k, n, 0, REG_SZ, (const BYTE*)v.c_str(), (DWORD)((v.size() + 1) * sizeof(wchar_t)));
         };
         auto dw = [&](const wchar_t* n, DWORD v) { RegSetValueExW(k, n, 0, REG_DWORD, (const BYTE*)&v, 4); };
-        sz(L"DisplayName", L"Blood Dragon VR (Far Cry 3 Blood Dragon VR mod)");
+        sz(L"DisplayName", isUbiCopy(g) ? L"Blood Dragon VR (Far Cry 3 Blood Dragon VR mod, Ubisoft Connect copy)"
+                                        : L"Blood Dragon VR (Far Cry 3 Blood Dragon VR mod)");
         sz(L"DisplayVersion", kBuild);
         sz(L"DisplayIcon", setup);
         sz(L"InstallLocation", g);
@@ -729,6 +782,10 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
     {  // prompts1: the prompts file goes with the settings file
         wstring pf = bin + L"\\" + kPromptsName;
         if (fileExists(pf) && !o.keepIni) MoveFileExW(pf.c_str(), (bak + L"\\bdvr-prompts-" + stamp() + L".txt").c_str(), MOVEFILE_COPY_ALLOWED);
+        for (const Pic& f : langFiles()) {  // lang1: the other languages' prompt files go the same way
+            wstring lf = bin + L"\\" + f.name;
+            if (fileExists(lf) && !o.keepIni) MoveFileExW(lf.c_str(), (bak + L"\\" + f.name.substr(0, f.name.size() - 4) + L"-" + stamp() + L".txt").c_str(), MOVEFILE_COPY_ALLOWED);
+        }
     }
     DeleteFileW((mod + L"\\bdvr-prompts.default.txt").c_str());
     {  // xrloader2: the OpenXR loader only if Setup put it there and it is still ours
@@ -782,9 +839,11 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
     ui.begin(L"Desktop shortcut");
     if (o.removeShortcut) {
         wstring lnk = stateGet(g, L"Shortcut");
-        if (lnk.empty()) lnk = desktopShortcut();
+        if (lnk.empty()) lnk = desktopShortcut(g);
         bool gone = false;
-        for (int i = 0; i < 10 && !lnk.empty() && fileExists(lnk) && !gone; i++) {  // Explorer may hold it a moment
+        // ubi2: only remove it if it still starts this copy (an older Setup gave both copies the same shortcut)
+        const bool ours = !lnk.empty() && fileExists(lnk) && shortcutIsFor(lnk, g);
+        for (int i = 0; i < 10 && ours && !gone; i++) {  // Explorer may hold it a moment
             gone = DeleteFileW(lnk.c_str());
             if (!gone) Sleep(200);
         }
@@ -794,7 +853,14 @@ static wstring doUninstall(const wstring& g, const UninstallOptions& o, const St
     }
 
     ui.begin(L"Removing Blood Dragon VR from Windows' app list");
-    RegDeleteKeyExW(HKEY_LOCAL_MACHINE, kUninstKey, KEY_WOW64_64KEY, 0);
+    {  // ubi2: this copy's entry; the shared entry an older Setup used only if it still points here
+        auto delIfOurs = [&](const wstring& key) {
+            wstring loc = regString(HKEY_LOCAL_MACHINE, key.c_str(), L"InstallLocation", KEY_WOW64_64KEY);
+            if (loc.empty() || lower(fullPath(loc)) == lower(fullPath(g))) RegDeleteKeyExW(HKEY_LOCAL_MACHINE, key.c_str(), KEY_WOW64_64KEY, 0);
+        };
+        delIfOurs(uninstKey(g));
+        if (uninstKey(g) != kUninstKey) delIfOurs(kUninstKey);
+    }
     DeleteFileW(stateFile(g).c_str());
     DeleteFileW((mod + L"\\Setup tips.txt").c_str());
     DeleteFileW((mod + L"\\fc3vr.default.ini").c_str());
@@ -1300,7 +1366,7 @@ static bool chooseGame() {
     for (;;) {
         vector<wstring> items;
         for (auto& f : g_found) {
-            wstring tag = steamOwns(f) ? L"  [Steam's copy]" : L"  [old copy?]";
+            wstring tag = steamOwns(f) ? L"  [Steam's copy]" : isUbiCopy(f) ? L"  [Ubisoft Connect]" : L"  [old copy?]";
             if (g_found.size() == 1) tag = L"";
             items.push_back(shorten(f, 62 - (int)tag.size()) + tag);
         }
@@ -1376,11 +1442,12 @@ static void installFlow() {
     if (!chooseGame()) return;
     if (!knownGameVersion(g_game)) {
         int c = dialog(L"Different game version", {
-            L"Blood Dragon VR was made for the Steam copy of the game after its last update. This copy's "
-            L"FC3_d3d11.dll is different, so it may be another version (Ubisoft Connect, an older patch or a "
-            L"changed file), and the mod may not work with it.",
+            L"Blood Dragon VR knows the Steam and Ubisoft Connect copies of the game after their last updates. "
+            L"This copy's FC3_d3d11.dll is different from both, so it may be an older patch or a changed file, "
+            L"and the mod may not work with it.",
             L"",
-            L"Steam owners: Verify integrity of game files in Steam, then run Setup again."},
+            L"Steam owners: Verify integrity of game files in Steam. Ubisoft Connect owners: Verify files in "
+            L"Ubisoft Connect. Then run Setup again."},
             {L"Install anyway", L"Back"}, kErr, [] { frame(L"\x2190\x2192 = Choose   Enter = OK"); }, 1);
         if (c != 0) return;
     }
@@ -1392,11 +1459,15 @@ static void installFlow() {
     vector<Check> c = {
         {L"4 GB memory patch for the game (recommended)",
          L"Lets the game use 4 GB of memory instead of 2 GB, which VR needs. Setup can undo it.", &o.laa},
-        {L"Stop Steam updating the game (recommended)",
-         L"Locks Steam's update file for Blood Dragon so an update can't undo the mod. Setup can undo it.", &o.steamLock},
         {L"Desktop shortcut that starts the game in VR",
          L"Starts the game's own program directly, skipping the Steam and Ubisoft launch screens.", &o.shortcut},
     };
+    // ubi1: the Steam update lock only for a Steam copy (a Ubisoft Connect copy has no Steam update file)
+    if (!steamManifest(g_game).empty())
+        c.insert(c.begin() + 1, {L"Stop Steam updating the game (recommended)",
+                                 L"Locks Steam's update file for Blood Dragon so an update can't undo the mod. Setup can undo it.", &o.steamLock});
+    else
+        o.steamLock = false;
     c.push_back({compat ? L"Load the mod as dinput8.dll (needed: Windows CPU fix found)" : L"Load the mod as dinput8.dll (only if VR didn't start)",
                  L"For players who fixed the game's start-up crash on CPUs with many threads with a Windows compatibility fix: "
                  L"that fix stops version.dll loading. See Setup tips.", &o.dinput8});

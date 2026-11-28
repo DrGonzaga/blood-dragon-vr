@@ -210,8 +210,27 @@ static bool LoadRuntime() {
     }
     HMODULE rt = LoadLibraryW(lib);
     if (!rt) {
-        Log("XR: LoadLibrary(%ls) failed, error %lu", lib, GetLastError());
-        return false;
+        const DWORD e = GetLastError();
+        Log("XR: LoadLibrary(%ls) failed, error %lu", lib, e);
+        // rt32 (25 Nov, Pimax player: "doesn't start in VR"): Pimax registers its 64-bit-only runtime for 32-bit apps too
+        // (error 193 = not a 32-bit DLL). Say so plainly, then try the other runtimes Windows lists for 32-bit apps.
+        if (e == ERROR_BAD_EXE_FORMAT)
+            Log("XR: that OpenXR runtime is 64-bit only and this game is 32-bit. Set SteamVR as the OpenXR runtime (SteamVR "
+                "Settings > OpenXR > Set SteamVR as OpenXR Runtime), or another runtime with 32-bit support such as Virtual Desktop's VDXR");
+        HKEY k;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Khronos\\OpenXR\\1\\AvailableRuntimes", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+            for (DWORD i = 0; !rt && i < 32; ++i) {
+                wchar_t name[MAX_PATH];
+                DWORD nl = MAX_PATH, type = 0, val = 0, vl = sizeof val;
+                if (RegEnumValueW(k, i, name, &nl, nullptr, &type, (BYTE *)&val, &vl) != ERROR_SUCCESS) break;
+                if (type == REG_DWORD && val != 0) continue;  // 1 = disabled
+                if (!_wcsicmp(name, json) || !LibraryPathFromJson(name, lib, MAX_PATH)) continue;
+                rt = LoadLibraryW(lib);
+                Log("XR: trying the other listed runtime %ls: %s", name, rt ? "loaded" : "not 32-bit either");
+            }
+            RegCloseKey(k);
+        }
+        if (!rt) return false;
     }
     auto negotiate =
         (PFN_xrNegotiateLoaderRuntimeInterface)GetProcAddress(rt, "xrNegotiateLoaderRuntimeInterface");
@@ -1359,9 +1378,9 @@ asm(".globl _CloseStub\n"
 // quitbd1: Blood Dragon. 0x100037bc runs the main loop (0x10659907) and then calls the engine
 // teardown 0x1000372c at 0x100037d0 (FC3: 0x117b7e8c calling 0x117b5ec0).
 void XrQuitHookInstallBd(BYTE *bd) {
-    BYTE *call = bd + 0x37d0, *fn = bd + 0x372c, *loop = bd + 0x37cb;
+    BYTE *call = BdAt(bd, 0x37d0), *fn = BdAt(bd, 0x372c), *loop = BdAt(bd, 0x37cb);
     if (IsBadReadPtr(loop, 10) || call[0] != 0xe8 || call + 5 + *(int *)(call + 1) != fn || loop[0] != 0xe8 ||
-        loop + 5 + *(int *)(loop + 1) != bd + 0x659907) {
+        loop + 5 + *(int *)(loop + 1) != BdAt(bd, 0x659907)) {
         Log("XR: Blood Dragon's engine close call not where expected; quit hook off");
         return;
     }

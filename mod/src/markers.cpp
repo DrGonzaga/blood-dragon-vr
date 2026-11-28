@@ -64,8 +64,8 @@ __asm__(
     "  jmp *_g_objSetPos\n");
 
 static bool PatchCall(BYTE *fc3, DWORD call, DWORD target, void *stub, void **orig, const char *what) {
-    BYTE *c = fc3 + (call - kImageBase);
-    BYTE *t = fc3 + (target - kImageBase);
+    BYTE *c = BdAt(fc3, call);
+    BYTE *t = BdAt(fc3, target);
     if (IsBadReadPtr(c, 5) || c[0] != 0xe8 || c + 5 + *(int *)(c + 1) != t) {
         Log("markers: %s call doesn't match; switch off", what);
         return false;
@@ -114,7 +114,7 @@ static BYTE *g_bdMod;
 static void *__attribute__((thiscall)) BdMapQuat(BYTE *ent, void *out) {
     const float *m = (const float *)(ent + 0x20);
     if (g_mapHead) m = MapYawPick(m);
-    BdCdeclCall(g_bdMod + 0x1a63ef, 2, out, m);
+    BdCdeclCall(BdAt(g_bdMod, 0x1a63ef), 2, out, m);
     return out;
 }
 
@@ -164,7 +164,7 @@ static BYTE __attribute__((thiscall)) BdObjProject(BYTE *self, const float *worl
             DWORD w[4];
             BYTE out[32];
             memcpy(w, &s, 8), memcpy(w + 2, &s, 8);
-            BdThisCall(g_bdMod + 0x39675b, c, 5, out, w[0], w[1], w[2], w[3]);
+            BdThisCall(BdAt(g_bdMod, 0x39675b), c, 5, out, w[0], w[1], w[2], w[3]);
             s_clip = c, s_sc = g_objScale, s_t = now;
         }
     }
@@ -205,14 +205,14 @@ void MarkersInstallBd(BYTE *bd) {
     bool b = PatchCall(fc3, 0x109c2e0d, 0x10396665, (void *)MarkPlStub, &g_plSetPos, "map marker icon");
     void *dummy;
     static const BYTE kQ[6] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83};
-    bool c = !memcmp(bd + 0x1a63ef, kQ, 6) && PatchCall(fc3, 0x109efe24, 0x1029c8ad, (void *)BdMapQuat, &dummy, "minimap heading");
+    bool c = !memcmp(BdAt(bd, 0x1a63ef), kQ, 6) && PatchCall(fc3, 0x109efe24, 0x1029c8ad, (void *)BdMapQuat, &dummy, "minimap heading");
     Log("markers: minimap heading %s (%s)", c ? "hook in" : "NOT hooked", g_mapHead ? "follows head" : "game's");
     Log("markers: quest icon %s (%s), map marker icon %s (%s)", a ? "hook in" : "NOT hooked",
         g_hideObjIcon ? "hidden" : "shown", b ? "hook in" : "NOT hooked", g_hideMarkIcon ? "hidden" : "shown");
     {  // objhead1
         static const BYTE kProj[8] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83, 0xe4, 0xf0}, kScale[8] = {0x55, 0x8b, 0xec, 0xf2, 0x0f, 0x10, 0x45, 0x14};
-        BYTE *sc = bd + 0x39675b;
-        bool ok = !memcmp(bd + 0x98c204, kProj, 8) && !memcmp(sc, kScale, 8) && sc[0x21] == 0xe8 && sc + 0x26 + *(int *)(sc + 0x22) == bd + 0xeaef00 &&
+        BYTE *sc = BdAt(bd, 0x39675b);
+        bool ok = !memcmp(BdAt(bd, 0x98c204), kProj, 8) && !memcmp(sc, kScale, 8) && sc[0x21] == 0xe8 && sc + 0x26 + *(int *)(sc + 0x22) == BdAt(bd, 0xeaef00) &&
                   PatchCall(fc3, 0x1082c0f5, 0x1098c204, (void *)BdObjProject, &g_objProj, "quest icon place");
         Log("markers: quest icon by the head %s (%s, size x%.1f)", ok ? "hook in" : "NOT hooked", g_objHead ? "on" : "off", g_objScale);
     }
@@ -223,6 +223,6 @@ void MarkersInstallBd(BYTE *bd) {
 bool GamePaused() {
     static BYTE *s_bd;
     if (!s_bd) s_bd = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
-    BYTE *o = s_bd ? *(BYTE **)(s_bd + 0x1846744) : nullptr;
+    BYTE *o = s_bd ? *(BYTE **)(BdAt(s_bd, 0x1846744)) : nullptr;
     return o && o[0x58] != 0;
 }

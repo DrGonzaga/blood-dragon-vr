@@ -6,5 +6,7 @@
 #define IDR_PICINDEX   105
 #define IDR_PROMPTS    106
 #define IDR_XRLOADER   107
+#define IDR_LANGINDEX  108
 #define IDR_PIC0       200
+#define IDR_LANG0      300
 #define IDI_SETUP      1
