@@ -9,7 +9,9 @@ IDR_CONTROLSPDF RCDATA "../build/payload/controls.pdf"
 IDR_PICINDEX   RCDATA "../build/payload/pictures.txt"
 IDR_PROMPTS    RCDATA "../build/payload/bdvr-prompts.txt"
 IDR_XRLOADER   RCDATA "../build/payload/openxr_loader.dll"
+IDR_LANGINDEX  RCDATA "../build/payload/langs.txt"
 #include "../build/pictures.rc"
+#include "../build/langs.rc"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 1,0,0,0

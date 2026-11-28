@@ -17,6 +17,11 @@ cp build/payload/controls.pdf "$STAGE/Blood Dragon VR controls.pdf"
 sed "s/<version>/$(echo $BUILD | tr - ' ')/g; s/Setup-$(echo $BUILD | tr - ' ').exe/Setup-$BUILD.exe/; s/<bd>/$BD/g" release-docs/README.txt | sed 's/$/\r/' > "$STAGE/README.txt"
 sed 's/$/\r/' release-docs/THIRD-PARTY-NOTICES.txt > "$STAGE/THIRD-PARTY-NOTICES.txt"
 cp build/payload/version.dll build/payload/fc3vr.ini build/payload/bdvr-prompts.txt build/payload/openxr_loader.dll "$STAGE/Manual install/bin/"
+j=0  # lang1: the other languages' prompt files
+while IFS= read -r n; do
+    [ -n "$n" ] && cp "build/payload/lang$j" "$STAGE/Manual install/bin/$n"
+    j=$((j + 1))
+done < build/payload/langs.txt
 # xrloader2: the loader's licence beside the notices
 XRLIC=${XRLIC:-../builds/bd137/openxr_loader-LICENSE.txt}
 [ -f "$XRLIC" ] || XRLIC=third_party/openxr_loader-LICENSE.txt

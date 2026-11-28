@@ -86,7 +86,7 @@ void AmmoGameTick(BYTE *pawn) {
         if (Bad(h + 0xc, 4)) break;
         BYTE *ent = *(BYTE **)(h + 0xc);
         if (Bad(ent, 0x40)) break;
-        W = (BYTE *)BdThisCall(s_mod + 0x4508db, ent, 0);
+        W = (BYTE *)BdThisCall(BdAt(s_mod, 0x4508db), ent, 0);
         if (Bad(W + 0x48, 4)) { W = nullptr; break; }
         BYTE *c = *(BYTE **)(W + 0x48);
         if (Bad(c + 0x64, 0x70)) break;
@@ -101,7 +101,7 @@ void AmmoGameTick(BYTE *pawn) {
         if (W != s_lastW || now - s_resT > 200) {  // the walk over the carried items, five times a second
             s_resT = now;
             res = -1;
-            BYTE *item = (BYTE *)BdThisCall(s_mod + 0x51d017, inv, 1, P + 0x184);
+            BYTE *item = (BYTE *)BdThisCall(BdAt(s_mod, 0x51d017), inv, 1, P + 0x184);
             if (!Bad(item, 0x40)) {
                 BYTE *x = *(BYTE **)(item + 0x3c);
                 if (!Bad(x + 0x60, 4)) {

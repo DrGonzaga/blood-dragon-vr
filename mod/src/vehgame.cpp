@@ -59,10 +59,10 @@ int VehGameInVehicle(BYTE *ent) {
         BYTE *bd = g_bloodDragon && BdEngineOn() && BdStage() >= 7 ? (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll") : nullptr;
         if (bd) {
             static const BYTE kHead[] = {0x55, 0x8b, 0xec, 0x51, 0x51, 0x8b, 0x4d, 0x08, 0x85, 0xc9, 0x75, 0x04, 0x33, 0xc0, 0xc9, 0xc3};
-            BYTE *f = bd + 0x3df556, *ty = bd + 0x3a02b5;
-            if (!memcmp(f, kHead, sizeof kHead) && ty[0] == 0xf6 && ty[1] == 0x05 && *(DWORD *)(ty + 2) == (DWORD)bd + 0x1872140 &&
-                ty[8] == 0xbe && *(DWORD *)(ty + 9) == (DWORD)bd + 0x1872128) {
-                g_fn = (DWORD)f, g_typeFlag = (DWORD *)(bd + 0x1872140), g_typeId = (DWORD *)(bd + 0x187213c), g_state = 1;
+            BYTE *f = BdAt(bd, 0x3df556), *ty = BdAt(bd, 0x3a02b5);
+            if (!memcmp(f, kHead, sizeof kHead) && ty[0] == 0xf6 && ty[1] == 0x05 && *(DWORD *)(ty + 2) == (DWORD)BdAt(bd, 0x1872140) &&
+                ty[8] == 0xbe && *(DWORD *)(ty + 9) == (DWORD)BdAt(bd, 0x1872128)) {
+                g_fn = (DWORD)f, g_typeFlag = (DWORD *)(BdAt(bd, 0x1872140)), g_typeId = (DWORD *)(BdAt(bd, 0x187213c)), g_state = 1;
             }
         }
         Log("vehgame: the game's own vehicle record: %s", g_state > 0 ? "ready" : "not found (game changed?); old test used");

@@ -385,6 +385,23 @@ void HeadtrackOnPresent() {
         off[1] = d[1];
         off[2] = -sn * d[0] + c * d[2];
     }
+    // walkhands4 (DrGonzaga 28 Nov, bd172: hands fine, "but hud moved forward"; bd172 log: head up to 4.1 m from the body):
+    // with your own stick pushed roomscale stands aside, so real steps took the head metres from the game body. The view
+    // stops at 1 m, but the hands, HUD panels, holsters and menus all place from the full offset and ran on ahead. Now the
+    // anchor is moved along (as roomscale does) so the level offset never passes 1 m: everything stays with the view.
+    if (g_enabled && EngineOnFoot() && !EngineInVehicle()) {
+        float sx = off[0] > 1 ? off[0] - 1 : off[0] < -1 ? off[0] + 1 : 0;
+        float sz = off[2] > 1 ? off[2] - 1 : off[2] < -1 ? off[2] + 1 : 0;
+        static DWORD s_logT;
+        static int s_logs;
+        if (sx != 0 || sz != 0) {
+            if (GetTickCount() - s_logT > 5000 && s_logs < 30)
+                ++s_logs, Log("head: %.2f m right, %.2f m back of the body: the room anchor moves along (kept within 1 m)", off[0], off[2]);
+            s_logT = GetTickCount();
+            HeadtrackShiftAnchor(sx, sz);
+            off[0] -= sx, off[2] -= sz;
+        }
+    }
     EngineSetHead(&h.m[0][0], off, pq, pp);
 
     // quiet1: the 10 s "head:" counts line is gone (always 0 since the engine camera hook).

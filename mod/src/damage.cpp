@@ -46,8 +46,8 @@ static void __fastcall DamageMod(void *self, void *edx, void *stim, float *dmg) 
 }
 
 void DamageInstallBd(BYTE *bd) {
-    DWORD *vt = (DWORD *)(bd + 0x15c51e0);
-    BYTE *stim = bd + 0x76bcdc, *mod = bd + 0x76e4a8, *site = bd + 0x76c351;
+    DWORD *vt = (DWORD *)(BdAt(bd, 0x15c51e0));
+    BYTE *stim = BdAt(bd, 0x76bcdc), *mod = BdAt(bd, 0x76e4a8), *site = BdAt(bd, 0x76c351);
     // the modifier: push ebp; mov ebp,esp; movss xmm1,[ecx+2d0h]; xorps xmm0,xmm0 ...
     static const BYTE kMod[] = {0x55, 0x8b, 0xec, 0xf3, 0x0f, 0x10, 0x89, 0xd0, 0x02, 0x00, 0x00, 0x0f, 0x57, 0xc0};
     // the handler's call of it: mov eax,[ebx]; push edi; push esi; mov ecx,ebx; call [eax+104h]

@@ -45,8 +45,6 @@ float g_gunDrawn[16];
 // kick2: the pose as drawn (with the hip recoil), for the gun's own attachments
 volatile LONG g_gunKids, g_gunKidsFixed;
 float g_restDev, g_restDevMax;  // melee1
-volatile float g_gameGunDev;  // chargeglass2
-volatile DWORD g_gameGunDevT;
 volatile bool g_singleShot;  // chargeglass1/3: the scoped rifle (DLC_BD_VIPER) without its RELOADKIT is bolt action
 volatile LONG g_moved, g_placed, g_shifted, g_fresh, g_noCam, g_noGun, g_noHand, g_rotKept, g_rotRewritten;
 volatile bool g_relearn;
@@ -227,6 +225,34 @@ static const float *PoseAng() {
     g_mirAng[0] = a[0], g_mirAng[1] = -a[1], g_mirAng[2] = -a[2];
     return g_mirAng;
 }
+// walkhands3 (DrGonzaga 28 Nov, bd171: "when i walked forwards, and pressed forwards, my hands moved far in front of my
+// body"): with your own stick pushed roomscale stands aside, so real steps can take the head more than 1 m from the
+// game body. The view caps the head offset at 1 m on each axis (engine.cpp), but the hands kept the full offset and
+// went on ahead of the view. Now the hands get the same cap (nothing changes below 1 m). Logged when it starts.
+static void CapLikeView(const EngineView &v, float off[3]) {
+    float hm[16], h[3];
+    if (!v.sixdof || !EngineHeadPose(hm, h)) return;
+    bool capped = false;
+    for (int i = 0; i < 3; ++i) {
+        float c = h[i] < -1 ? -1 : h[i] > 1 ? 1 : h[i];
+        if (c != h[i]) capped = true;
+        off[i] -= h[i] - c;
+    }
+    static bool s_was;
+    static int s_logs;
+    if (capped && !s_was && s_logs < 30)
+        ++s_logs, Log("hands: head %.2f m right, %.2f m up, %.2f m back of the body (more than 1 m): hands held with the view", h[0], h[1], h[2]);
+    s_was = capped;
+}
+// walkhands2: the head's place this game frame (camera + the head offset capped at 1 m as the view does), for hands.cpp.
+static void HeadPlace(const EngineView &v, const float cam[3], float out[3]) {
+    float hm[16], h[3];
+    memcpy(out, cam, 12);
+    if (!v.sixdof || !EngineHeadPose(hm, h)) return;
+    const float *fr = v.posAxes, *wu = v.posAxes + 3, *ff = v.posAxes + 6;
+    for (int i = 0; i < 3; ++i) h[i] = h[i] < -1 ? -1 : h[i] > 1 ? 1 : h[i];
+    for (int i = 0; i < 3; ++i) out[i] = cam[i] + (fr[i] * h[0] + wu[i] * h[1] - ff[i] * h[2]) / v.scale;
+}
 bool HandFrame(const EngineView &v, const float cam[3], float H[9], float hand[3]) {
     float m[16], off[3];
     if (!HeadtrackHand(1, m, off)) return false;
@@ -262,6 +288,7 @@ bool HandFrame(const EngineView &v, const float cam[3], float H[9], float hand[3
     Mul(Rp, Rr, T), Mul(Ry, T, Q), Mul(Q, F, H);
     memcpy(g_F, F, sizeof F);
     memcpy(g_gunAxesW, H, sizeof g_gunAxesW);  // lefty2: the gun's right / forward / up in the world
+    CapLikeView(v, off);  // walkhands3
     const float *fr = v.posAxes, *wu = v.posAxes + 3, *ff = v.posAxes + 6;
     for (int i = 0; i < 3; ++i)
         hand[i] = cam[i] + (v.sixdof ? (fr[i] * off[0] + wu[i] * off[1] - ff[i] * off[2]) / v.scale : 0);
@@ -284,6 +311,7 @@ bool HandWorldRaw(int which, const EngineView &v, const float cam[3], float F[9]
     W(m[0], m[4], m[8], F);
     W(-m[2], -m[6], -m[10], F + 3);
     W(m[1], m[5], m[9], F + 6);
+    CapLikeView(v, off);  // walkhands3
     const float *fr = v.posAxes, *wu = v.posAxes + 3, *ff = v.posAxes + 6;
     for (int i = 0; i < 3; ++i)
         hand[i] = cam[i] + (v.sixdof ? (fr[i] * off[0] + wu[i] * off[1] - ff[i] * off[2]) / v.scale : 0);
@@ -642,7 +670,9 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
         float camE[3] = {Gc[12], Gc[13], Gc[14] + EngineCrouchLift()}, FL[9], pL[3], FR[9], pR[3];
         bool okL = HandWorldRaw(0, v, camE, FL, pL), okR = HandWorldRaw(1, v, camE, FR, pR);
         HandsControllers(okL ? FL : nullptr, pL, okR ? FR : nullptr, pR, v.scale, false);
-        HandsHead(v.pos, v.posAxes, EngineScoped(), camE, v.fwd);
+        float hdE[3];
+        HeadPlace(v, camE, hdE);  // walkhands2
+        HandsHead(v.pos, v.posAxes, EngineScoped(), camE, v.fwd, hdE);
         HandsFrameEmpty(comp, ent);
         static int s_en;
         if (s_en < 6 && okL != okR) ++s_en, Log("hands: no weapon: only the %s controller is tracked", okL ? "left" : "right");
@@ -779,14 +809,6 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
             g_restDev = dev;
             if (dev > g_restDevMax) g_restDevMax = dev;
         }
-    }
-    // chargeglass2 (DrGonzaga 24 Nov, bd157: "it worked, then I reloaded, moved a bit, then it stopped working"): how far the
-    // game's own gun turn (its animation: charging, reloading) is from the learnt rest turn, every frame the game wrote it.
-    if (memcmp(M, s_wrote, 64)) {
-        float dev = 0;
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j) dev = fmaxf(dev, fabsf(Dot(M + 4 * i, G + 4 * j) - s_rel[i * 3 + j]));
-        g_gameGunDev = dev, g_gameGunDevT = GetTickCount();
     }
     // roll1 check: is the turn we wrote last time still there (game draws our
     // turn), or did the game write its own (then roll and muzzle come from it)?
@@ -996,7 +1018,9 @@ DWORD __attribute__((fastcall)) Hook(BYTE *comp, void *, DWORD a, DWORD b) {
             }
             if (g_roll) Moved(c4Ent);
         }
-        HandsHead(v.pos, v.posAxes, EngineScoped(), cam, v.fwd);  // hands4
+        float hd[3];
+        HeadPlace(v, cam, hd);  // walkhands2
+        HandsHead(v.pos, v.posAxes, EngineScoped(), cam, v.fwd, hd);  // hands4
     }
     HandsFrame(comp, ent, g_gunBone, M);  // hands: this frame's gun pose for the skin hook
     return r;
@@ -1020,7 +1044,7 @@ static volatile LONG g_showGunHits;
 bool *GunAttachScopeShowGun() { return (bool *)&g_showGun; }
 static void HiResInstallBd(BYTE *bd) {
     static const BYTE kHead[12] = {0x55, 0x8b, 0xec, 0x56, 0x8b, 0xf1, 0x57, 0x8d, 0x7e, 0x04, 0x8b, 0x07};
-    BYTE *fn = bd + 0x706aa5;
+    BYTE *fn = BdAt(bd, 0x706aa5);
     if (memcmp(fn, kHead, 12) || memcmp(fn + 0x2a, "\x38\x5e\x50", 3)) {
         Log("gunattach: scopegun2: SetHiResScope doesn't match; the game still hides scoped guns");
         return;
@@ -1058,7 +1082,7 @@ static void HiResLogTick() {
 void GunAttachInstallBd(BYTE *bd) {
     static const BYTE kHead[12] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83, 0xe4, 0xf0, 0x83, 0xc4, 0x04, 0x55};
     static const BYTE kMovedHead[12] = {0x55, 0x8b, 0xec, 0x83, 0xec, 0x20, 0x56, 0x8b, 0xf1, 0xff, 0x76, 0x68};
-    BYTE *fn = bd + 0x2da9a9, *mv = bd + 0x29ce48;
+    BYTE *fn = BdAt(bd, 0x2da9a9), *mv = BdAt(bd, 0x29ce48);
     if (memcmp(fn, kHead, 12) || memcmp(mv, kMovedHead, 12)) {
         Log("gunattach: Blood Dragon code doesn't match; off");
         return;
@@ -1522,7 +1546,6 @@ bool GunAttachPose(float m[16]) {
 
 
 bool GunAttachSingleShot() { return g_singleShot; }  // chargeglass1
-float GunAttachGameGunDev() { return GetTickCount() - g_gameGunDevT < 250 ? g_gameGunDev : 0; }  // chargeglass2
 
 // glue1 (DrGonzaga 24 Nov: "Do away with the timers altogether, and have the eyebox glued to the gun model somehow? through
 // the animation?"): the bolt-action rifle's own bone table (the same table the bow's string uses: entries of 0x90 at the
@@ -1551,9 +1574,8 @@ void GlueMove(const float *R0, const float *R1, const float *q, float *o, bool p
 
 void GunAttachGlueTick(BYTE *ent) {  // game thread, every placed frame
     static BYTE *s_ent;
-    static DWORD s_chk, s_since, s_evT;
-    static float s_maxT, s_maxA;
-    static int s_dumps, s_logs;
+    static DWORD s_chk, s_since;
+    static int s_dumps;
     const DWORD now = GetTickCount();
     if (!g_singleShot || !g_bloodDragon || !ent) {
         g_glueBones = nullptr, g_glueRestOk = false, s_ent = nullptr;
@@ -1573,13 +1595,6 @@ void GunAttachGlueTick(BYTE *ent) {  // game thread, every placed frame
             if (s_dumps < 3) {
                 ++s_dumps;
                 if (!b) Log("scope glue: no bone table on the rifle (%s): the glass uses the timers", g_turned);
-                else {
-                    Log("scope glue: rifle %s has %d bones:", g_turned, n);
-                    for (int i = 0; i < n; ++i) {
-                        const float *m = (const float *)(b + i * 0x90 + 0x50);
-                        Log("scope glue:   bone %d hash %08lx parent %d at (%.3f %.3f %.3f)", i, *(DWORD *)(b + i * 0x90), *(int *)(b + i * 0x90 + 4), m[12], m[13], m[14]);
-                    }
-                }
             }
         }
     }
@@ -1590,22 +1605,8 @@ void GunAttachGlueTick(BYTE *ent) {  // game thread, every placed frame
     const bool idle = now - s_since > 3000 && (!st || now - st > 4000) && (!xt || now - xt > 6000);
     if (idle) {
         for (int i = 0; i < n; ++i) memcpy(g_glueRest[i], b + i * 0x90 + 0x50, 64);
-        if (!g_glueRestOk) Log("scope glue: %s at rest noted; the glass follows its animation from now", g_turned);
+        if (!g_glueRestOk) LogV("scope glue: %s at rest noted; the glass follows its animation from now", g_turned);
         g_glueRestOk = true;
-    }
-    // One line per shot / reload (10 in all): how far the bone under the glass moved, to see the glue has something to follow.
-    const DWORD ev = st > xt ? st : xt;
-    const int bi = g_glueBone;
-    if (g_glueRestOk && bi >= 0 && bi < n && ev && now - ev < 4000) {
-        const float *R0 = g_glueRest[bi], *R1 = (const float *)(b + bi * 0x90 + 0x50);
-        float dt[3] = {R1[12] - R0[12], R1[13] - R0[13], R1[14] - R0[14]}, tr = 0;
-        for (int j = 0; j < 3; ++j) tr += D3(R0 + 4 * j, R1 + 4 * j) / sqrtf(fmaxf(D3(R0 + 4 * j, R0 + 4 * j) * D3(R1 + 4 * j, R1 + 4 * j), 1e-12f));
-        float c = (tr - 1) * 0.5f;
-        float a = acosf(c > 1 ? 1 : c < -1 ? -1 : c) * 57.29578f, t = sqrtf(D3(dt, dt));
-        s_evT = ev, s_maxT = fmaxf(s_maxT, t), s_maxA = fmaxf(s_maxA, a);
-    } else if (s_evT && now - s_evT >= 4000) {
-        if (s_logs < 10) ++s_logs, Log("scope glue: after the %s the rifle part under the glass (bone %d) moved up to %.1f cm and %.1f deg", s_evT == st ? "shot" : "reload press", bi, s_maxT * 100, s_maxA);
-        s_evT = 0, s_maxT = s_maxA = 0;
     }
 }
 

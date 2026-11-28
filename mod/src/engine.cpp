@@ -345,11 +345,11 @@ static float *__cdecl LodParamsHook(float *out, BYTE *cfg, BYTE *view) {
 }
 static void LodParamsInstallBd() {
     static const DWORD kFn = 0x100d47a7, kZoom = 0x100d4718, kSites[2] = {0x100d7f14, 0x1118091b};
-    BYTE *fn = g_mod + (kFn - kImageBase), *zf = g_mod + (kZoom - kImageBase);
+    BYTE *fn = BdAt(g_mod, kFn), *zf = BdAt(g_mod, kZoom);
     static const BYTE kHead[7] = {0x55, 0x8b, 0xec, 0x51, 0x8b, 0x45, 0x10}, kZHead[8] = {0x55, 0x8b, 0xec, 0x51, 0x56, 0x8b, 0x75, 0x08};
     bool ok = !memcmp(fn, kHead, sizeof kHead) && !memcmp(zf, kZHead, sizeof kZHead);
     for (DWORD a : kSites) {
-        BYTE *c = g_mod + (a - kImageBase);
+        BYTE *c = BdAt(g_mod, a);
         ok = ok && c[0] == 0xe8 && c + 5 + *(int *)(c + 1) == fn;
     }
     if (!ok) {
@@ -357,7 +357,7 @@ static void LodParamsInstallBd() {
         return;
     }
     g_lodParams = (LodParamsFn)fn, g_lodZoom = (LodZoomFn)zf;
-    for (DWORD a : kSites) PatchCallTo(g_mod + (a - kImageBase), (void *)LodParamsHook);
+    for (DWORD a : kSites) PatchCallTo(BdAt(g_mod, a), (void *)LodParamsHook);
     Log("engine: kill1: view detail numbers hooked at BD+%08lx and BD+%08lx", kSites[0], kSites[1]);
 }
 static void LodFix(float gameFov, float ourFov) {
@@ -366,8 +366,8 @@ static void LodFix(float gameFov, float ourFov) {
     static const float k0 = 1.0f / tanf(0.6545f);
     g_lodGameFov = gameFov, g_lodOurFov = ourFov;
     if (!g_mod) return;
-    float *k = (float *)(g_mod + (kK - kImageBase));
-    if (!(*(DWORD *)(g_mod + (kInit - kImageBase)) & 1)) return;  // the game sets k up first
+    float *k = (float *)(BdAt(g_mod, kK));
+    if (!(*(DWORD *)(BdAt(g_mod, kInit)) & 1)) return;  // the game sets k up first
     float r = ourFov > 0.1f ? tanf(gameFov * 0.5f) / tanf(ourFov * 0.5f) : 1.0f;
     float f = g_lodFix < 0 ? 0 : g_lodFix > 1 ? 1 : g_lodFix;
     float nk = k0 * (1.0f + (r - 1.0f) * f);
@@ -701,13 +701,13 @@ const char *EngineInputModeName(char *buf, size_t cap) {
 bool EngineCutsceneIn3D() { return g_cutInter; }
 // The input mode in force: false = can't tell right now.
 static bool SeqRead(DWORD *h, DWORD *h2, BYTE **inp) {
-    BYTE *pm = *(BYTE **)(g_mod + (kPlayersGlobal - kImageBase));
+    BYTE *pm = *(BYTE **)(BdAt(g_mod, kPlayersGlobal));
     if (!pm || IsBadReadPtr(pm + 8, 8)) return false;
     BYTE **arr = *(BYTE ***)(pm + 8);
     DWORD n = *(DWORD *)(pm + 0xc);
     if (!arr || !n || n > 16 || IsBadReadPtr(arr, 4)) return false;
     BYTE *el = arr[0];
-    if (!el || IsBadReadPtr(el, 8) || *(DWORD *)el != (DWORD)g_mod + (kPlayerWrapVt - kImageBase)) return false;
+    if (!el || IsBadReadPtr(el, 8) || *(DWORD *)el != (DWORD)BdAt(g_mod, kPlayerWrapVt)) return false;
     BYTE *ctl = *(BYTE **)(el + 4);
     if (!ctl || IsBadReadPtr(ctl + 0x13c, 0x3c)) return false;
     BYTE *in = ctl + 0x13c, *cur = *(BYTE **)(in + 0x30);
@@ -750,12 +750,12 @@ bool g_seqBySeq = true;     // [vr] CutsceneBySequence: a playing cutscene seque
 static bool g_seqMgrOk;
 static bool SeqCutscenePlaying(int *playing) {
     *playing = 0;
-    BYTE *m = *(BYTE **)(g_mod + (kSeqMgrGlobal - kImageBase));
+    BYTE *m = *(BYTE **)(BdAt(g_mod, kSeqMgrGlobal));
     if (!m || IsBadReadPtr(m + 0x24, 8)) return false;
     BYTE **arr = *(BYTE ***)(m + 0x24);
     DWORD n = *(DWORD *)(m + 0x28);
     if (!arr || !n || n > 4096 || IsBadReadPtr(arr, n * 4)) return false;
-    const DWORD vt = (DWORD)g_mod + (kSeqVt - kImageBase);
+    const DWORD vt = (DWORD)BdAt(g_mod, kSeqVt);
     bool cut = false;
     for (DWORD i = 0; i < n; ++i) {
         BYTE *q = arr[i];
@@ -1023,8 +1023,8 @@ static void CutsceneTick(DWORD src) {
 // 0x11853560 (+8 array, +0xc count, as FC3) and the wrapper's vtable is 0x11530bd8, whose slot 2
 // (0x102a9478) is byte for byte FC3's getter of the input-mode object.
 static void CutsceneInstallBd() {
-    BYTE *f = g_mod + 0x120c274, *set = g_mod + 0x5dfff;
-    BYTE **gl = (BYTE **)(g_mod + 0x1846744);
+    BYTE *f = BdAt(g_mod, 0x120c274), *set = BdAt(g_mod, 0x5dfff);
+    BYTE **gl = (BYTE **)(BdAt(g_mod, 0x1846744));
     bool ok = !IsBadReadPtr(f, 0x18) && f[9] == 0x8b && f[10] == 0x0d && *(DWORD *)(f + 11) == (DWORD)gl && f[15] == 0x6a &&
               f[16] == 1 && f[17] == 0xe8 && f + 22 + *(int *)(f + 18) == set && !IsBadReadPtr(set, 12) &&
               !memcmp(set + 3, "\x8a\x45\x08\x0f\x57\xc0\x88\x41\x70", 9);
@@ -1032,20 +1032,20 @@ static void CutsceneInstallBd() {
     Log(ok ? "cutscene: watching the game's cinematic flag (BD+11846744 +0x70)"
            : "cutscene: Blood Dragon's cinematic flag not found; cutscene handling off");
     kPlayersGlobal = 0x11853560, kPlayerWrapVt = 0x11530bd8;
-    DWORD *vt = (DWORD *)(g_mod + (kPlayerWrapVt - kImageBase));
+    DWORD *vt = (DWORD *)(BdAt(g_mod, kPlayerWrapVt));
     BYTE *fn = IsBadReadPtr(vt, 12) ? nullptr : (BYTE *)vt[2];
-    g_seqOk = fn && fn == g_mod + 0x2a9478 && !IsBadReadPtr(fn, 9) && !memcmp(fn, "\x8b\x41\x04\x05\x3c\x01\x00\x00\xc3", 9);
+    g_seqOk = fn && fn == BdAt(g_mod, 0x2a9478) && !IsBadReadPtr(fn, 9) && !memcmp(fn, "\x8b\x41\x04\x05\x3c\x01\x00\x00\xc3", 9);
     Log("seq: the game's input mode list %s", g_seqOk ? "found" : "NOT found: cutscenes told by the flag and camera only");
     {
         // bd35 (movie1 for Blood Dragon): its "is a cutscene sequence playing" is BD+111fdf58 (thiscall, ecx = *(BD+11f02bf0)):
         // the same walk (+0x24 array, +0x28 count, +0x2c == 1 playing, byte +0xaa bIsCutscene), cast by BD+106ba1bb.
         // CCinematicSequence's vtable is BD+116ee088 (slots 30 / 32 = start BD+1120c274 / stop BD+1120c355).
-        BYTE *w = g_mod + 0x11fdf58, *c = g_mod + 0x833d69;
-        DWORD *svt = (DWORD *)(g_mod + 0x16ee088);
+        BYTE *w = BdAt(g_mod, 0x11fdf58), *c = BdAt(g_mod, 0x833d69);
+        DWORD *svt = (DWORD *)(BdAt(g_mod, 0x16ee088));
         g_seqMgrOk = !IsBadReadPtr(w, 0x30) && !memcmp(w, "\x8b\x41\x28\x56\x8b\x71\x24", 7) && !memcmp(w + 0x13, "\x83\x78\x2c\x01", 4) &&
                      !memcmp(w + 0x24, "\x80\xb8\xaa\x00\x00\x00\x00", 7) && !IsBadReadPtr(c, 6) && c[0] == 0x8b && c[1] == 0x0d &&
-                     *(DWORD *)(c + 2) == (DWORD)g_mod + 0x1f02bf0 && !IsBadReadPtr(svt, 33 * 4) && svt[30] == (DWORD)g_mod + 0x120c274 &&
-                     svt[32] == (DWORD)g_mod + 0x120c355;
+                     *(DWORD *)(c + 2) == (DWORD)BdAt(g_mod, 0x1f02bf0) && !IsBadReadPtr(svt, 33 * 4) && svt[30] == (DWORD)BdAt(g_mod, 0x120c274) &&
+                     svt[32] == (DWORD)BdAt(g_mod, 0x120c355);
         if (g_seqMgrOk) kSeqMgrGlobal = 0x11f02bf0, kSeqVt = 0x116ee088;
         Log("seq: the game's list of playing cutscene sequences %s", g_seqMgrOk ? "found: scripted scenes without control go on the movie screen"
                                                                                 : "NOT found: cutscenes found by camera only");
@@ -1609,6 +1609,7 @@ static volatile DWORD g_userStickTick;
 bool *EngineRoomScale() { return &g_room; }
 float *EngineRoomStart() { return &g_roomStart; }
 void EngineUserMoved() { g_userStickTick = GetTickCount(); }
+bool EngineUserStickRecent() { return GetTickCount() - g_userStickTick < 300; }  // walkhands2
 bool EngineRoomStick(SHORT *x, SHORT *y) {
     if (!g_roomWalk) return false;
     *x = (SHORT)(g_roomStick[0] * 32767), *y = (SHORT)(g_roomStick[1] * 32767);
@@ -1699,7 +1700,7 @@ static void __attribute__((thiscall)) BdListenerHook(BYTE *l) {
     if (l) ListenerFix(l);
 }
 static void ListenerInstallBd(BYTE *mod) {
-    BYTE *site = mod + (0x102a9a4d - kImageBase), *fn = mod + (0x10366757 - kImageBase);
+    BYTE *site = BdAt(mod, 0x102a9a4d), *fn = BdAt(mod, 0x10366757);
     static const BYTE kHead[8] = {0x55, 0x8b, 0xec, 0x0f, 0x57, 0xc0, 0x83, 0xec};
     if (site[0] != 0xe8 || site + 5 + *(int *)(site + 1) != fn || memcmp(fn, kHead, sizeof kHead)) {
         Log("engine: Blood Dragon sound listener call doesn't match; sound stays with the game camera");
@@ -2337,22 +2338,22 @@ static void __attribute__((thiscall)) BdAimHook(BYTE *sub, float *angles) {
 }
 
 static bool EngineInstallBd() {
-    BYTE *target = g_mod + (kBdUpdateMatrices - kImageBase), *build = g_mod + (kBdBuildCamera - kImageBase);
+    BYTE *target = BdAt(g_mod, kBdUpdateMatrices), *build = BdAt(g_mod, kBdBuildCamera);
     if (memcmp(target, kBdPrologue, sizeof kBdPrologue) || memcmp(build, kBdBuildPrologue, sizeof kBdBuildPrologue)) {
         Log("engine: Blood Dragon camera code doesn't match this mod's game version; engine hook disabled");
         return false;
     }
     // Every expected caller must be a call to the build function.
     for (int i = 0; i < 6; ++i) {
-        BYTE *c = g_mod + (kBdBuildCalls[i] - kImageBase);
+        BYTE *c = BdAt(g_mod, kBdBuildCalls[i]);
         if (c[0] != 0xe8 || c + 5 + *(int *)(c + 1) != build) {
             Log("engine: Blood Dragon camera build call %d not found; engine hook disabled", i);
             return false;
         }
         g_bdBuildRet[i] = (DWORD)(c + 5);
     }
-    g_bdMainRet = (DWORD)g_mod + (kBdMainRet - kImageBase);
-    BYTE *tail = g_mod + (0x100ee5b8 - kImageBase);
+    g_bdMainRet = (DWORD)BdAt(g_mod, kBdMainRet);
+    BYTE *tail = BdAt(g_mod, 0x100ee5b8);
     if (g_bdMainRet != g_bdBuildRet[0] || tail[0] != 0xe9 || tail + 5 + *(int *)(tail + 1) != target) {
         Log("engine: Blood Dragon camera build doesn't end as expected; engine hook disabled");
         return false;
@@ -2389,7 +2390,7 @@ static bool EngineInstallBd() {
     Log("engine: Blood Dragon camera hook installed at %p (BD+%08lx), camera build at BD+%08lx", target, kBdUpdateMatrices, kBdBuildCamera);
     LoadWorldScale();
     if (BdStage() >= 3) {
-        BYTE *ac = g_mod + (kBdAimCall - kImageBase), *sl = g_mod + (kBdSetLook - kImageBase);
+        BYTE *ac = BdAt(g_mod, kBdAimCall), *sl = BdAt(g_mod, kBdSetLook);
         static const BYTE kSetLook[12] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83, 0xe4, 0xf0, 0x83, 0xc4, 0x04, 0x55};
         if (ac[0] == 0xe8 && ac + 5 + *(int *)(ac + 1) == sl && !memcmp(sl, kSetLook, sizeof kSetLook) &&
             (g_bdSetLook = (BdSetLookFn)sl, PatchCallTo(ac, (void *)BdAimHook)))

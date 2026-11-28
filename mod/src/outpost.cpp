@@ -35,7 +35,7 @@ void OutpostApply() {
 
 void OutpostInstallBd(BYTE *bd) {
     if (!bd) return;
-    BYTE *s = bd + (kSiteBd - kImageBase);
+    BYTE *s = BdAt(bd, kSiteBd);
     if ((memcmp(s, kOrigBd, 5) && memcmp(s, kPatchBd, 5)) || memcmp(s + 5, kRestBd, 8)) {
         Log("outpost: Blood Dragon's reset-outposts code doesn't match; left as it is");
         return;

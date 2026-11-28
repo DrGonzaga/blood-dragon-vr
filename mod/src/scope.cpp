@@ -766,21 +766,10 @@ void ScopeDraw(IDXGISwapChain *sc) {
     if (g_rifle && GunAttachSingleShot() && !(*GunAttachGlueOn() && GunAttachGlueState() == 3)) {  // chargeglass1 (glue1: timers only when the glue cannot follow): the single-shot Kobracon's charging after each shot moves the rifle
         // chargeglass3: hidden for the set time after each shot (the bolt / charging animation); chargeglass2's
         // "rifle off its rest" rule removed (it made the glass flash, bd158).
-        static DWORD s_shotSeen;
-        static int s_logs;
         const DWORD st = InputLastShotT(), now = GetTickCount();
-        if (st != s_shotSeen) {
-            s_shotSeen = st;
-            if (st && s_logs < 20) ++s_logs, Log("scope: single-shot rifle: shot: glass hidden %.1f s", g_chargeHide);
-        }
         if (st && now - st < (DWORD)(g_chargeHide * 1000)) return;
         // boltreload1 (DrGonzaga 24 Nov: "a timer for reload? Just for this gun at this setup"): the game's X (reload) press
-        static DWORD s_xSeen;
         const DWORD xt = InputPadXTime();
-        if (xt != s_xSeen) {
-            s_xSeen = xt;
-            if (xt && s_logs < 20) ++s_logs, Log("scope: single-shot rifle: reload press: glass hidden %.1f s", g_boltReloadHide);
-        }
         if (xt && now - xt < (DWORD)(g_boltReloadHide * 1000)) return;
     }
     const bool active = EngineScopePictureActive() && (eye == 0 || (eye == 1 && EngineScopeEye() == 2));  // pip1: both eyes

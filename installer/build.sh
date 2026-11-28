@@ -47,6 +47,20 @@ if [ -z "$PROMPTS" ]; then
 fi
 cp "$PROMPTS" build/payload/bdvr-prompts.txt
 echo "prompts: $(md5sum < "$PROMPTS" | cut -c1-32) from $PROMPTS"
+# lang1 (bd168): prompt texts for the game's other languages (bin\bdvr-prompts-<Language>.txt)
+LANGDIR=${LANGDIR:-$(dirname "$PROMPTS")/lang}
+: > build/payload/langs.txt
+: > build/langs.rc
+j=0
+for f in "$LANGDIR"/bdvr-prompts-*.txt; do
+    [ -f "$f" ] || continue
+    cp "$f" "build/payload/lang$j"
+    printf '%s\n' "$(basename "$f")" >> build/payload/langs.txt
+    printf '%d RCDATA "../build/payload/lang%d"\n' $((300 + j)) $j >> build/langs.rc
+    j=$((j + 1))
+done
+[ $j -gt 0 ] || printf '\n' > build/payload/langs.txt  # windres wants a non-empty file
+echo "prompt languages: $j files from $LANGDIR"
 echo "pictures: $i files from $PICS"
 [ -f build/icon.ico ] || python3 make_art.py build
 

@@ -4,8 +4,8 @@ A full VR mod for Far Cry 3 Blood Dragon: 6DoF head tracking, motion-controlled 
 bow, throwing, a synthwave VR menu and lots more.
 
 WHAT YOU NEED
-* Far Cry 3 Blood Dragon on Steam, updated, and started once without the mod.
-  Other versions (Ubisoft Connect, GOG, old patches) are untested; Setup warns you if yours differs.
+* Far Cry 3 Blood Dragon on Steam or Ubisoft Connect, updated, and started once without the mod.
+  Other versions (GOG, old patches) are untested; Setup warns you if yours differs.
 * A PC VR headset with a 32-bit OpenXR runtime. Tested on Quest 3 with Virtual Desktop
   (set Virtual Desktop's OpenXR runtime to VDXR).
 * Windows 10 or 11.

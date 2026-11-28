@@ -136,13 +136,7 @@ void __attribute__((thiscall)) GadgetActivate(void *self, void *user) {
     g_gStrat = self, g_gUser = user, g_gStratT = GetTickCount();
     g_gActivate(self, user);
 }
-volatile DWORD g_heartLetGoT, g_heartTakeT;  // heartlog1: when the held heart's grip was let go / it was taken
 void __attribute__((thiscall)) GadgetFire(void *self, void *user) {
-    if (DWORD lg = g_heartLetGoT) {  // heartlog1 (beta feedback 23 Nov: "a delay when throwing the cyberheart")
-        g_heartLetGoT = 0;
-        DWORD now = GetTickCount();
-        if (now - lg < 5000) Log("holster: cyber heart left the hand %lu ms after the grip was let go (held %lu ms)", now - lg, lg - g_heartTakeT);
-    }
     LONG u = g_abortUntil;
     if (u && (LONG)((DWORD)u - GetTickCount()) > 0 && self == g_gStrat) return;  // being put away: no throw
     g_gFire(self, user);
@@ -187,14 +181,15 @@ DWORD __attribute__((thiscall)) UseThrowHook(BYTE *inv, DWORD flag) {
     return r;
 }
 void NadeInstallBd() {
-    DWORD *vt = (DWORD *)(g_bd + kGadgetVtBd);
-    static const struct { int slot; DWORD at; const char *b; } want[3] = {
-        {11, 0x5e6045, "\x55\x8b\xec\x56\x8b\xf1\x8b\x4d\x08\xe8"},
-        {14, 0x5e5b49, "\x55\x8b\xec\x83\xec\x18\x53\x56\x8b\x75"},
-        {16, 0x5e4218, "\x55\x8b\xec\x56\x51\x8b\xf1\x8b\x0d\x50"}};
+    DWORD *vt = (DWORD *)BdAt(g_bd, kGadgetVtBd);
+    static const struct { int slot; DWORD at; const char *b; int n; } want[3] = {
+        {11, 0x5e6045, "\x55\x8b\xec\x56\x8b\xf1\x8b\x4d\x08\xe8", 10},
+        {14, 0x5e5b49, "\x55\x8b\xec\x83\xec\x18\x53\x56\x8b\x75", 10},
+        // ubi1: 9 bytes, the 10th is the low byte of a global's address (differs in the Ubisoft Connect build)
+        {16, 0x5e4218, "\x55\x8b\xec\x56\x51\x8b\xf1\x8b\x0d", 9}};
     if (IsBadReadPtr(vt, 20 * 4)) return;
     for (auto &w : want)
-        if (vt[w.slot] != (DWORD)(g_bd + w.at) || memcmp(g_bd + w.at, w.b, 10)) {
+        if (vt[w.slot] != (DWORD)BdAt(g_bd, w.at) || memcmp(BdAt(g_bd, w.at), w.b, w.n)) {
             Log("holster: Blood Dragon's throw gadget doesn't match (slot %d); a held cyber heart can't be put back", w.slot);
             return;
         }
@@ -206,12 +201,12 @@ void NadeInstallBd() {
     Log("holster: Blood Dragon's throw gadget hooked (a held cyber heart can be put back)");
     {  // heart4
         static const DWORD site[3] = {0x4ef62f, 0xb11441, 0x1244b37};
-        BYTE *fn = g_bd + 0x5239ec;
+        BYTE *fn = BdAt(g_bd, 0x5239ec);
         bool ok = !memcmp(fn, "\x55\x8b\xec\x83\xec\x0c\x56\x8b\xf1\x8b\x46\x4c", 12);
-        for (DWORD a : site) ok = ok && g_bd[a] == 0xe8 && g_bd + a + 5 + *(int *)(g_bd + a + 1) == fn;
+        for (DWORD a : site) ok = ok && BdAt(g_bd, a)[0] == 0xe8 && BdAt(g_bd, a) + 5 + *(int *)(BdAt(g_bd, a) + 1) == fn;
         if (ok) {
             g_useThrow = (UseThrowFn)fn;
-            for (DWORD a : site) ok = PatchCallTo(g_bd + a, (void *)UseThrowHook) && ok;
+            for (DWORD a : site) ok = PatchCallTo(BdAt(g_bd, a), (void *)UseThrowHook) && ok;
         }
         Log("holster: Blood Dragon's throw %s", ok ? "caught (the wrist menu heart is thrown as the game's own heart)" : "NOT matched: the wrist menu heart uses its button instead");
         if (!ok) g_useThrow = nullptr;
@@ -223,7 +218,7 @@ bool Ready() {
     BYTE *bd = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
     static const BYTE kSel[] = {0x55, 0x8b, 0xec, 0x51, 0x53, 0x56, 0x8b, 0xf1, 0x80, 0xbe, 0xab, 0x00};
     static const BYTE kPostB[] = {0x55, 0x8b, 0xec, 0xf6, 0x05};
-    bool ok = BdStage() >= 7 && bd && !memcmp(bd + 0x520550, kSel, sizeof kSel) && !memcmp(bd + 0x1243485, kPostB, sizeof kPostB);
+    bool ok = BdStage() >= 7 && bd && !memcmp(BdAt(bd, 0x520550), kSel, sizeof kSel) && !memcmp(BdAt(bd, 0x1243485), kPostB, sizeof kPostB);
     if (ok) g_bd = bd, g_state = 1, NadeInstallBd();
     for (int k = 0; k < 4; ++k) InterlockedExchange(&g_have[k], 0);
     Log("holster: Blood Dragon's weapon select %s", ok ? "found" : "NOT found: holsters off");
@@ -241,11 +236,11 @@ DWORD NameHash(const char *n) {
     // bd28: Blood Dragon's is BD+1004f01e (thiscall: ecx = &out, name, 1, 0; ret 0xc), as its select-by-name
     // BD+1051dd91 makes the hash it keeps at inventory + 0xe4 (BD+1051de84: mov ecx,[esi+0xe4]).
     if (!s_ok)
-        s_ok = g_bd && !IsBadReadPtr(g_bd + 0x4f01e, 12) && !memcmp(g_bd + 0x4f01e, "\x55\x8b\xec\x8b\x45\x08\x56\x8b\xf1\x85\xc0\x74", 12) &&
-               !memcmp(g_bd + 0x51de84, "\x8b\x8e\xe4\x00\x00\x00", 6) ? 1 : -1;
+        s_ok = g_bd && !IsBadReadPtr(BdAt(g_bd, 0x4f01e), 12) && !memcmp(BdAt(g_bd, 0x4f01e), "\x55\x8b\xec\x8b\x45\x08\x56\x8b\xf1\x85\xc0\x74", 12) &&
+               !memcmp(BdAt(g_bd, 0x51de84), "\x8b\x8e\xe4\x00\x00\x00", 6) ? 1 : -1;
     if (s_ok < 0 || !n[0]) return 0;
     DWORD out = 0;
-    BdThisCall(g_bd + 0x4f01e, &out, 3, n, 1, 0);
+    BdThisCall(BdAt(g_bd, 0x4f01e), &out, 3, n, 1, 0);
     return out;
 }
 
@@ -713,7 +708,6 @@ void HolsterInput(const VrPad &p) {
         }
         InterlockedExchange(&g_throwHold, (LONG)((LONG)(end - now) > 0 ? end : now));
         g_heartRestoreT = end + 1500;
-        g_heartLetGoT = now ? now : 1;  // heartlog1
         Log("holster: cyber heart thrown (the game's own; throw let go in %ld ms%s)", (long)((LONG)(end - now) > 0 ? end - now : 0),
             (LONG)(g_throwAimUntil - now) > 0 ? ", along the swing" : "");
         return;
@@ -759,7 +753,7 @@ void HolsterInput(const VrPad &p) {
             // bd152's 0.3 s wait, so the grenade it had started went). The game's own throw only does nothing when there
             // is no grenade or molotov to throw (bd150 log 13:41: rocks only), so only then, from the grab, its own heart
             // button is held for as long as the grip is; letting go throws, as in the game.
-            g_heartBtnHeld = true, g_heartRestoreT = 0, g_heartTakeT = now;
+            g_heartBtnHeld = true, g_heartRestoreT = 0;
             InterlockedExchange(&g_heartPress, (LONG)(now + 600000));
             Log("holster: cyber heart taken from the wrist menu (no grenade or molotov: the game's own heart button held)");
             return;
@@ -771,7 +765,6 @@ void HolsterInput(const VrPad &p) {
             InterlockedExchange(&g_req, 24);
             g_throwing = true, g_throwPressT = now;
             InterlockedExchange(&g_throwHold, (LONG)(now + 600000));
-            g_heartTakeT = now;  // heartlog1
         }
         Log("holster: cyber heart taken from the wrist menu (%s)", g_heartModel ? "the game's own, its throw held" : "icon in the hand");
         return;
@@ -954,7 +947,7 @@ void HolsterGameTick(BYTE *pawn) {
     if (wrist) req -= 20;
     if (InterlockedExchange(&g_abortReq, 0)) {  // heart3: put the held throwable away (the game's abort)
         BYTE *st = (BYTE *)g_gStrat;
-        bool ok = g_gAbort && st && g_gUser && g_bd && !IsBadReadPtr(st, 0x100) && *(DWORD *)st == (DWORD)(g_bd + kGadgetVtBd) && now - g_gStratT < 600000;
+        bool ok = g_gAbort && st && g_gUser && g_bd && !IsBadReadPtr(st, 0x100) && *(DWORD *)st == (DWORD)BdAt(g_bd, kGadgetVtBd) && now - g_gStratT < 600000;
         if (ok) {
             InterlockedExchange(&g_abortUntil, (LONG)(now + 1500));
             g_gAbort(st, g_gUser);
@@ -984,24 +977,24 @@ void HolsterGameTick(BYTE *pawn) {
         // bd29 (DrGonzaga 13 Nov: mines "none owned"; his log names the weapon "weapons:FC3/ProximityMine"): the mine
         // as FC3 does it. Find weapon BD+1051ca34 (thiscall inventory, &name hash; ret 4; same hash table as FC3,
         // mine d2dec8ba), select BD+10522b8e (thiscall inventory, weapon, 0; ret 8), then the same "switch" post.
-        if (req == 23 && !memcmp(g_bd + 0x51ca34, "\x55\x8b\xec\x83\xec\x0c\x8b\x41", 8) &&
-            !memcmp(g_bd + 0x522b8e, "\x55\x8b\xec\x83\xec\x0c\x56\x8b\xf1\x80", 10)) {
+        if (req == 23 && !memcmp(BdAt(g_bd, 0x51ca34), "\x55\x8b\xec\x83\xec\x0c\x8b\x41", 8) &&
+            !memcmp(BdAt(g_bd, 0x522b8e), "\x55\x8b\xec\x83\xec\x0c\x56\x8b\xf1\x80", 10)) {
             DWORD hash = kHashMine;
-            BYTE *w = (BYTE *)BdThisCall(g_bd + 0x51ca34, owner + 0xbd4, 1, &hash);
+            BYTE *w = (BYTE *)BdThisCall(BdAt(g_bd, 0x51ca34), owner + 0xbd4, 1, &hash);
             if (w) {
-                BdThisCall(g_bd + 0x522b8e, owner + 0xbd4, 2, w, 0);
-                BdThisCall(g_bd + 0x1243485, pawn, 1, pawn);
+                BdThisCall(BdAt(g_bd, 0x522b8e), owner + 0xbd4, 2, w, 0);
+                BdThisCall(BdAt(g_bd, 0x1243485), pawn, 1, pawn);
             }
             snprintf(g_last, sizeof g_last, "%s: %s", SpotName(req - 16), w ? "in hand" : "none owned");
             Log("holster: grip at %s%s: %s (by weapon name)", wrist ? "the wrist menu, " : "", SpotName(req - 16), w ? "taken into the hand" : "none owned");
             return;
         }
         for (int i = 0; i < n && got < 0; ++i)
-            if ((DWORD)BdThisCall(g_bd + 0x520462, owner + 0xbd4, 1, g_bd + t[i]) & 0xff) got = i;
-        if (got >= 0) BdThisCall(g_bd + 0x1243485, pawn, 1, pawn);
+            if ((DWORD)BdThisCall(BdAt(g_bd, 0x520462), owner + 0xbd4, 1, BdAt(g_bd, t[i])) & 0xff) got = i;
+        if (got >= 0) BdThisCall(BdAt(g_bd, 0x1243485), pawn, 1, pawn);
         snprintf(g_last, sizeof g_last, "%s: %s", SpotName(req - 16), got >= 0 ? "in hand" : "none owned");
         Log("holster: grip at %s%s: %s (type %08lx)", wrist ? "the wrist menu, " : "", SpotName(req - 16), got >= 0 ? "taken into the hand" : "none owned",
-            got >= 0 ? *(DWORD *)(g_bd + t[got]) : 0ul);
+            got >= 0 ? *(DWORD *)BdAt(g_bd, t[got]) : 0ul);
         return;
     }
     if (req < 0 || req >= 20) {
@@ -1011,10 +1004,10 @@ void HolsterGameTick(BYTE *pawn) {
         int want = req >= 20 ? req - 20 : -1;
         bool done = false;
         LONG have[4] = {0, 0, 0, 0}, hearts = 0;
-        BYTE *inv = owner + 0xbd4, *glob = *(BYTE **)(g_bd + 0x1846780);
+        BYTE *inv = owner + 0xbd4, *glob = *(BYTE **)(BdAt(g_bd, 0x1846780));
         DWORD curHash = *(DWORD *)(inv + 0xe4);  // wrist1m: the game's current throwable (its name's hash)
         LONG cur = -1;
-        BYTE *cat = glob && !IsBadReadPtr(glob + 0x68, 8) ? (BYTE *)BdThisCall(g_bd + 0x427d10, glob, 1, 0) : nullptr;
+        BYTE *cat = glob && !IsBadReadPtr(glob + 0x68, 8) ? (BYTE *)BdThisCall(BdAt(g_bd, 0x427d10), glob, 1, 0) : nullptr;
         if (cat && !IsBadReadPtr(cat, 4)) {
             DWORD *vt = *(DWORD **)cat;
             int n = ((CountFn)vt[0x74 / 4])(cat);
@@ -1023,7 +1016,7 @@ void HolsterGameTick(BYTE *pawn) {
                 DWORD out[4] = {};
                 DWORD *id = ((IdFn)vt[0x78 / 4])(cat, out, i);
                 if (!id) continue;
-                BYTE *item = (BYTE *)BdThisCall(g_bd + 0x51d017, inv, 1, id);
+                BYTE *item = (BYTE *)BdThisCall(BdAt(g_bd, 0x51d017), inv, 1, id);
                 if (!item || IsBadReadPtr(item, 0x40)) continue;
                 BYTE *x = *(BYTE **)(item + 0x3c);
                 int cnt = x && !IsBadReadPtr(x + 0x60, 4) ? *(int *)(x + 0x60) : 0;
@@ -1048,7 +1041,7 @@ void HolsterGameTick(BYTE *pawn) {
                 if (k < 0) continue;
                 if (curHash && curHash != 0xffffffff && NameHash(name) == curHash) cur = k;  // wrist1m
                 have[k] += cnt;
-                if (k == want && cnt > 0 && !done) BdThisCall(g_bd + 0x51dd91, inv, 1, b + 0x10), done = true;
+                if (k == want && cnt > 0 && !done) BdThisCall(BdAt(g_bd, 0x51dd91), inv, 1, b + 0x10), done = true;
             }
         }
         have[1] = have[1] ? have[1] : -1, have[3] = have[3] ? have[3] : -1;  // C4 / mines: not counted (unknown)
@@ -1070,8 +1063,8 @@ void HolsterGameTick(BYTE *pawn) {
         return;
     }
     int slot = g_slot[req];
-    bool ok = ((DWORD)BdThisCall(g_bd + 0x520550, owner + 0xbd4, 1, slot) & 0xff) != 0;
-    if (ok) BdThisCall(g_bd + 0x1243485, pawn, 1, pawn), s_selSpot = req, s_selT = GetTickCount();
+    bool ok = ((DWORD)BdThisCall(BdAt(g_bd, 0x520550), owner + 0xbd4, 1, slot) & 0xff) != 0;
+    if (ok) BdThisCall(BdAt(g_bd, 0x1243485), pawn, 1, pawn), s_selSpot = req, s_selT = GetTickCount();
     snprintf(g_last, sizeof g_last, "%s (slot %d): %s", SpotName(req), slot + 1, ok ? "switched" : "empty, or already in hand");
     Log("holster: grip at %s: slot %d %s", SpotName(req), slot + 1, ok ? "selected" : "not changed (empty, or already this weapon)");
 }

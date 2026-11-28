@@ -507,8 +507,7 @@ static void Mix(const VrPad &p, XINPUT_GAMEPAD &g, bool stickUp, bool stickDown)
         for (int i = 0; i < kInCount; ++i) held |= in[i] > 0.5f && i != kInLRest && i != kInRRest && i != kInLGrip && i != kInRGrip;
         if (want != g_tableNow && !held) {
             g_tableNow = want;
-            static int s_n;
-            if (s_n < 60) ++s_n, Log("input: %s button table", want == 2 ? "game menu (shipped)" : want ? "vehicle" : "on-foot");
+            LogV("input: %s button table", want == 2 ? "game menu (shipped)" : want ? "vehicle" : "on-foot");  // tidy164: detailed log only
         }
     }
     memcpy(map, g_tableNow == 2 ? kShip : g_tableNow ? g_vmap : g_map, sizeof map);
@@ -835,11 +834,7 @@ static DWORD WINAPI HookGetState(DWORD user, XINPUT_STATE *st) {
     bool wheel = (st->Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) && !MenuOpen();
     static bool s_wheel;
     g_wheelHeld = wheel;  // hud: cut-outs back on the main panel while the wheel is up
-    if (wheel != s_wheel) {
-        s_wheel = wheel;
-        static int s_wn;  // ctl4: DrGonzaga 24 Nov, "left grip didn't open weapon wheel": always logged (40 max)
-        if (s_wn < 40) ++s_wn, Log("input: weapon wheel button (pad LB) %s", wheel ? "held: right stick to the game" : "let go");
-    }
+    s_wheel = wheel;  // tidy164: the per-press weapon wheel log (ctl4) is gone
     // quiver11: no melee at all with the bow in the left hand (reaching for arrows set it off). The
     // press itself had slipped into this comment (bow1p), so the if below took the roomscale lines
     // instead: roomscale only walked during a swing, and the body was left behind otherwise.

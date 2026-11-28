@@ -227,6 +227,18 @@ struct ArmState {
 ArmState g_arm[2];           // 0 right, 1 left
 float g_eyeS[3];
 bool g_eyeSOk;
+// walkhands2 (DrGonzaga 27 Nov: "when you move physically and press forward in-game at the same time, I want them to feel
+// the same as they do when you are doing either action independently"): the hands are followed (Smoothing, Blend) and
+// the shoulder guess smoothed against a point that moves with the game body (g_camRef). Walking for real on its own,
+// roomscale walks the body after the head, so the hands barely move against that point. With your own stick pushed,
+// roomscale stands aside: the body runs on by the stick while your real steps carry head and hands away from it at
+// walking speed, so the smoothing held the hands back (speed x 83 ms, plus 0.15 s on the shoulder) until you stopped.
+// Now that point also takes the level head offset, slowly (0.3 s), while your own stick is pushed: it moves at the
+// speed your real steps carry you, so the hands keep up, and quick head moves (lean, bob) still do not pull the hands.
+// With the stick let go it holds still (a fixed offset changes nothing), so walking for real alone or the stick alone
+// feel exactly as before.
+float g_qL[3], g_qW[3];  // the offset in the body's level axes, and in the world
+LONGLONG g_qT;
 LONGLONG g_lastQpc;
 // hands7 (DrGonzaga 13 Nov: after tuning arrows in the menu preview, the next nocked arrow sat 50 cm
 // to the side): the attachment update reads a mode 2 bone's own matrix (BD 0x101a6b45), so while the
@@ -307,7 +319,7 @@ bool ZipFrame(float *W) {
     float sc = g_ctlScale > 0.01f ? g_ctlScale : 1, C[9], P[3], fit[6] = {0, 0, 0, g_zip[3], g_zip[4], g_zip[5]};
     for (int k = 0; k < 3; ++k) {
         C[k] = R[k], C[3 + k] = F[k], C[6 + k] = U[k];
-        P[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] : g_eye[k]) + (R[k] * g_zip[0] + U[k] * g_zip[1] + F[k] * g_zip[2]) / sc;
+        P[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] + g_qW[k] : g_eye[k]) + (R[k] * g_zip[0] + U[k] * g_zip[1] + F[k] * g_zip[2]) / sc;
     }
     return CtlFrameOf(C, P, fit, 1, W);
 }
@@ -373,7 +385,7 @@ void Elbow(BYTE *bones, int n, int fore, int hand, float upperLen, float side, c
     const float *R = g_axes, *U = g_axes + 3, *F = g_axes + 6;
     float sw[3], dw[3];  // shoulder and "elbow goes this way" in the world
     for (int k = 0; k < 3; ++k) {
-        sw[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] : g_eye[k]) + (-U[k] * 0.20f + R[k] * 0.19f * side - F[k] * 0.08f) / sc;
+        sw[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] + g_qW[k] : g_eye[k]) + (-U[k] * 0.20f + R[k] * 0.19f * side - F[k] * 0.08f) / sc;
         dw[k] = -U[k] + R[k] * g_elbowOut * side - F[k] * 0.25f;
     }
     float s[3], dn[3];
@@ -425,7 +437,7 @@ void Elbow(BYTE *bones, int n, int fore, int hand, float upperLen, float side, c
         const float *P = g_playerNow;
         float ew[3], e[3], gm[3], gl = 0, gw[3];
         for (int k = 0; k < 3; ++k)
-            ew[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] : g_eye[k]) +
+            ew[k] = (g_eyeSOk ? g_eyeS[k] + g_camRef[k] + g_qW[k] : g_eye[k]) +
                     (U[k] * (-0.08f + g_bowEl[0]) + R[k] * (0.45f + g_bowEl[1]) * side - F[k] * (0.20f + g_bowEl[2])) / sc;
         for (int k = 0; k < 3; ++k) e[k] = ew[0] * ip[k] + ew[1] * ip[4 + k] + ew[2] * ip[8 + k] + ip[12 + k];
         for (int k = 0; k < 3; ++k) gm[k] = e[k] - w[k], gl += gm[k] * gm[k];
@@ -599,7 +611,7 @@ void Follow(ArmState &a, int mode, const float *hb, const float *Tt, const float
     float rot[9], pos[3];
     for (int r = 0; r < 3; ++r)
         for (int c = 0; c < 3; ++c) rot[r * 3 + c] = W[r * 4 + c];
-    for (int k = 0; k < 3; ++k) pos[k] = W[12 + k] - g_camRef[k];
+    for (int k = 0; k < 3; ++k) pos[k] = W[12 + k] - g_camRef[k] - g_qW[k];  // walkhands2
     bool snap = a.mode == 0;
     if (!snap) {
         float d2 = 0, dot = 0;
@@ -639,7 +651,7 @@ void Follow(ArmState &a, int mode, const float *hb, const float *Tt, const float
         }
     }
     float S[16] = {a.rot[0], a.rot[1], a.rot[2], 0, a.rot[3], a.rot[4], a.rot[5], 0, a.rot[6], a.rot[7], a.rot[8], 0,
-                   a.pos[0] + g_camRef[0], a.pos[1] + g_camRef[1], a.pos[2] + g_camRef[2], 1};
+                   a.pos[0] + g_camRef[0] + g_qW[0], a.pos[1] + g_camRef[1] + g_qW[1], a.pos[2] + g_camRef[2] + g_qW[2], 1};  // walkhands2
     Mul(ih, S, out);
     Mul(out, ip, out);
 }
@@ -1205,7 +1217,7 @@ void ApplyCore(BYTE *comp, BYTE *bones, int n) {
     if (dt > 0.25f) g_arm[0].mode = g_arm[1].mode = 0, g_eyeSOk = false;  // back after a break: no swoop from the old place
     dt = dt < 0.001f ? 0.001f : dt > 0.05f ? 0.05f : dt;
     {
-        float e[3] = {g_eye[0] - g_camRef[0], g_eye[1] - g_camRef[1], g_eye[2] - g_camRef[2]}, d2 = 0;
+        float e[3] = {g_eye[0] - g_camRef[0] - g_qW[0], g_eye[1] - g_camRef[1] - g_qW[1], g_eye[2] - g_camRef[2] - g_qW[2]}, d2 = 0;  // walkhands2
         for (int k = 0; k < 3; ++k) d2 += (e[k] - g_eyeS[k]) * (e[k] - g_eyeS[k]);
         float k = !g_eyeSOk || d2 > 0.25f ? 1 : 1 - expf(-dt / 0.15f);
         for (int i = 0; i < 3; ++i) g_eyeS[i] += (e[i] - g_eyeS[i]) * k;
@@ -1530,8 +1542,30 @@ float *HandsBlend() { return &g_blend; }
 // faces. The body frame is now the head's facing, levelled: up as given, forward = the view's forward
 // flattened, right from those two (the same handedness as the axes given). Eased, so a glance does
 // not swing the elbows at once.
-void HandsHead(const float *eye, const float *axes, bool scoped, const float *cam, const float *fwd) {
+void HandsHead(const float *eye, const float *axes, bool scoped, const float *cam, const float *fwd, const float *head) {
     memcpy(g_eye, eye, 12), memcpy(g_camRef, cam, 12);
+    {   // walkhands2: the followed point's offset from the body (see g_qL)
+        const float *Ra = axes, *Ua = axes + 3, *Fa = axes + 6;
+        LONGLONG qn = Qpc();
+        float dt = g_qT && g_qpf > 0 ? (float)((qn - g_qT) / g_qpf) : 0;
+        g_qT = qn;
+        if (!head) g_qL[0] = g_qL[2] = 0;
+        else {
+            float d[3] = {head[0] - cam[0], head[1] - cam[1], head[2] - cam[2]};
+            float h[3] = {d[0] * Ra[0] + d[1] * Ra[1] + d[2] * Ra[2], 0, d[0] * Fa[0] + d[1] * Fa[1] + d[2] * Fa[2]};  // level only
+            if (EngineUserStickRecent() && dt > 0) {
+                float dx = h[0] - g_qL[0], dz = h[2] - g_qL[2];
+                float k = dt > 0.25f || dx * dx + dz * dz > 2.0f ? 1 : 1 - expf(-dt / 0.3f);
+                g_qL[0] += dx * k, g_qL[2] += dz * k;
+            } else {
+                // stick let go: never further out than the head now, so as roomscale brings the body back under the head
+                // the offset goes with it and ends about 0 (turning then feels as before too)
+                float hl = sqrtf(h[0] * h[0] + h[2] * h[2]), ql = sqrtf(g_qL[0] * g_qL[0] + g_qL[2] * g_qL[2]);
+                if (ql > hl && ql > 1e-4f) g_qL[0] *= hl / ql, g_qL[2] *= hl / ql;
+            }
+        }
+        for (int k = 0; k < 3; ++k) g_qW[k] = Ra[k] * g_qL[0] + Ua[k] * g_qL[1] + Fa[k] * g_qL[2];
+    }
     const float *R0 = axes, *U = axes + 3, *F0 = axes + 6;
     float f[3], d = fwd ? fwd[0] * U[0] + fwd[1] * U[1] + fwd[2] * U[2] : 0, l = 0;
     for (int k = 0; k < 3; ++k) f[k] = fwd ? fwd[k] - d * U[k] : F0[k], l += f[k] * f[k];

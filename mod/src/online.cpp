@@ -128,8 +128,8 @@ void ScanlinesInstall(HMODULE game) {
         return;
     }
     BYTE *bd = (BYTE *)game;
-    char *name = (char *)(bd + 0x16ec8d8);
-    DWORD *flag = (DWORD *)(bd + 0x1f02da8);
+    char *name = (char *)(BdAt(bd, 0x16ec8d8));
+    DWORD *flag = (DWORD *)(BdAt(bd, 0x1f02da8));
     if (IsBadReadPtr(name, 16) || memcmp(name, "COverlayTrack", 14)) {
         Log("scanlines: the overlay class name isn't where expected; left alone");
         return;

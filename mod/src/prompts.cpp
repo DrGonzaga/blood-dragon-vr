@@ -14,6 +14,8 @@
 
 #include "fc3vr.h"
 
+bool GfxProfilePath(wchar_t *out);  // gfx.cpp: GamerProfile.xml (lang1)
+
 namespace {
 const DWORD kImageBase = 0x10000000;
 volatile bool g_on = true;  // [hud] HidePrompts
@@ -61,6 +63,21 @@ Table *volatile g_tab;
 wchar_t g_file[MAX_PATH];
 FILETIME g_fileTime;
 volatile LONG g_pollAt;
+
+// lang1 (bd168, DrGonzaga 27 Nov: "add Italian localization (even other languages) to prompts, if the language is selected
+// in the game (not the vr) menu"). Texts are found by number, so button names already work in every language; the
+// whole-text VR: lines are written in one language. Each language can have its own file, bin\bdvr-prompts-<Language>.txt
+// (e.g. bdvr-prompts-Italian.txt), used when the game's language is that one; otherwise bin\bdvr-prompts.txt (English).
+// The game's language: GamerProfile.xml <SoundProfile Language="..."> (what the game's own Options menu sets), re-read
+// whenever that file is saved, or [hud] PromptLanguage in fc3vr.ini to force one ("" or auto = follow the game).
+// The lookup's language key is logged when it changes (so we learn the game's numbers) and re-checks every text.
+wchar_t g_dir[MAX_PATH];     // bin\ (with the backslash)
+wchar_t g_langIni[32];       // [hud] PromptLanguage
+wchar_t g_lang[32];          // the language in use
+wchar_t g_prof[MAX_PATH];    // GamerProfile.xml
+FILETIME g_profTime;
+volatile LONG g_langKey = -1;  // the last language key the game's lookup was asked for
+volatile LONG g_keyCheck;      // set by the lookup when the key changed: re-read the profile at the next poll
 
 typedef void(__thiscall *StrReleaseFn)(DWORD *, DWORD *);
 typedef void(__thiscall *StrFromFn)(DWORD *, const wchar_t *);
@@ -224,26 +241,82 @@ Table *LoadTable() {
     HeapFree(GetProcessHeap(), 0, w);
     return tb;
 }
-bool FileTime(FILETIME *ft) {
+bool FileTimeOf(const wchar_t *path, FILETIME *ft) {
     WIN32_FILE_ATTRIBUTE_DATA a;
-    if (!GetFileAttributesExW(g_file, GetFileExInfoStandard, &a)) { ft->dwLowDateTime = ft->dwHighDateTime = 0; return false; }
+    if (!path[0] || !GetFileAttributesExW(path, GetFileExInfoStandard, &a)) { ft->dwLowDateTime = ft->dwHighDateTime = 0; return false; }
     *ft = a.ftLastWriteTime;
     return true;
 }
-void Reload(bool first) {
+bool FileTime(FILETIME *ft) { return FileTimeOf(g_file, ft); }
+const wchar_t *FileName() {
+    const wchar_t *s = wcsrchr(g_file, L'\\');
+    return s ? s + 1 : g_file;
+}
+void Reload(bool first, bool force = false) {
     FILETIME ft;
     bool have = FileTime(&ft);
-    if (!first && !CompareFileTime(&ft, &g_fileTime)) return;
+    if (!first && !force && !CompareFileTime(&ft, &g_fileTime)) return;
     g_fileTime = ft;
     Table *tb = have ? LoadTable() : nullptr;
     g_tab = tb;  // the old table is left (small; only on a save)
-    if (tb) Log("prompts: bdvr-prompts.txt %s: %d button name(s), %d whole text(s)", first ? "read" : "changed, read again", tb->nlab, tb->nrep);
-    else Log("prompts: no bdvr-prompts.txt next to fc3vr.ini; game prompts unchanged");
+    if (tb) Log("prompts: %ls %s: %d button name(s), %d whole text(s)", FileName(), first ? "read" : force ? "read (language changed)" : "changed, read again", tb->nlab, tb->nrep);
+    else Log("prompts: no %ls next to fc3vr.ini; game prompts unchanged", FileName());
     if (!first) InterlockedIncrement(&g_epoch);
+}
+// lang1: the language the game's Options menu set, from GamerProfile.xml (<SoundProfile ... Language="Italian" />).
+bool ProfileLanguage(wchar_t *out, int n) {
+    out[0] = 0;
+    HANDLE f = CreateFileW(g_prof, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return false;
+    char buf[4096];  // the SoundProfile line is the profile's first element
+    DWORD got = 0;
+    if (!ReadFile(f, buf, sizeof buf - 1, &got, nullptr)) got = 0;
+    CloseHandle(f);
+    buf[got] = 0;
+    const char *p = strstr(buf, "<SoundProfile");
+    const char *end = p ? strchr(p, '>') : nullptr;
+    const char *a = p ? strstr(p, " Language=\"") : nullptr;
+    if (!a || !end || a > end) return false;
+    a += 11;
+    int k = 0;
+    for (; a[k] && a[k] != '"' && k < n - 1; ++k) {
+        char c = a[k];
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+        out[k] = c;
+    }
+    out[k] = 0;
+    return k > 0;
+}
+// lang1: pick the file for the language in use; true when it is a different file from before.
+bool ChooseFile() {
+    wchar_t want[32];
+    bool fromIni = g_langIni[0] && _wcsicmp(g_langIni, L"auto");
+    if (fromIni) wcscpy(want, g_langIni);
+    else if (!ProfileLanguage(want, 32)) wcscpy(want, L"English");
+    wchar_t f[MAX_PATH];
+    wcscpy(f, g_dir), wcscat(f, L"bdvr-prompts.txt");
+    if (_wcsicmp(want, L"English")) {
+        wchar_t l[MAX_PATH];
+        wcscpy(l, g_dir), wcscat(l, L"bdvr-prompts-"), wcscat(l, want), wcscat(l, L".txt");
+        if (GetFileAttributesW(l) != INVALID_FILE_ATTRIBUTES) wcscpy(f, l);
+        else if (_wcsicmp(want, g_lang)) Log("prompts: no bdvr-prompts-%ls.txt in bin; %ls prompts use bdvr-prompts.txt", want, want);
+    }
+    if (_wcsicmp(want, g_lang))
+        Log("prompts: game language %ls (%s)", want, fromIni ? "[hud] PromptLanguage" : g_prof[0] ? "GamerProfile.xml" : "no GamerProfile.xml found");
+    wcscpy(g_lang, want);
+    if (!_wcsicmp(f, g_file)) return false;
+    wcscpy(g_file, f);
+    return true;
 }
 void Poll() {
     LONG now = (LONG)GetTickCount(), at = g_pollAt;
     if (now - at < 1000 || InterlockedCompareExchange(&g_pollAt, now, at) != at) return;
+    FILETIME pt;  // lang1: the game saved its options (or the lookup's language key changed): language again
+    FileTimeOf(g_prof, &pt);
+    if (CompareFileTime(&pt, &g_profTime) || InterlockedExchange(&g_keyCheck, 0)) {
+        g_profTime = pt;
+        if (ChooseFile()) { Reload(false, true); return; }
+    }
     Reload(false);
 }
 
@@ -257,7 +330,17 @@ typedef BYTE *(__thiscall *MapFindFn)(void *, DWORD *);
 typedef DWORD *(__thiscall *BankGetFn)(void *, DWORD, DWORD);
 MapFindFn g_mapFind;
 BankGetFn g_bankGet;
-const wchar_t *volatile g_orig[kSlots];  // slot -> the game's own text (kept: the table copy gets replaced)
+const wchar_t *volatile g_origL[4][kSlots];  // slot -> the game's own text (kept: the table copy gets replaced)
+// lang1: one set per language key (the table has a bank per language; ours replaced only the one asked for)
+volatile LONG g_keys[4] = {-1, -1, -1, -1};
+int KeySet(LONG key) {
+    for (int i = 0; i < 4; ++i) {
+        if (g_keys[i] == key) return i;
+        if (g_keys[i] == -1 && InterlockedCompareExchange(&g_keys[i], key, -1) == -1) return i;
+        if (g_keys[i] == key) return i;
+    }
+    return 3;  // more than four languages in one run: the last set is shared (texts may need a restart)
+}
 volatile DWORD g_obj[kSlots];            // slot -> string object last put in the table
 
 DWORD *StoreHandle(void *tbl, int id, DWORD lang) {
@@ -346,8 +429,9 @@ void Check(int id, DWORD *out, DWORD ret, void *tbl, DWORD lang) {
         else n = 0;
     }
     // The game's own text: kept the first time, because the table's copy is replaced from then on.
-    if (slot >= 0 && !g_orig[slot] && t) g_orig[slot] = Dup(t, n);
-    const wchar_t *orig = slot >= 0 && g_orig[slot] ? g_orig[slot] : t;
+    const wchar_t *volatile *origs = g_origL[KeySet((LONG)lang)];
+    if (slot >= 0 && !origs[slot] && t) origs[slot] = Dup(t, n);
+    const wchar_t *orig = slot >= 0 && origs[slot] ? origs[slot] : t;
     int on = orig ? (int)wcslen(orig) : 0;
     bool blank = false;
     // vrtext3 (bd132): a text with its own VR: line in bdvr-prompts.txt is never hidden by the word list
@@ -405,6 +489,17 @@ BdLookupFn g_bdOrig;
 DWORD __thiscall BdHook(void *tbl, DWORD *out, int mode, int id, DWORD lang) {
     DWORD r = g_bdOrig(tbl, out, mode, id, lang);
     if (mode != 0) return r;
+    if ((LONG)lang != g_langKey) {  // lang1: the game asks in another language (start, or a language change)
+        static volatile LONG s_n;
+        LONG was = InterlockedExchange(&g_langKey, (LONG)lang);
+        if (was != (LONG)lang) {
+            if (InterlockedIncrement(&s_n) <= 12) Log("prompts: game text language key %ld (was %ld; profile language %ls)", (LONG)lang, was, g_lang);
+            if (was != -1) {
+                InterlockedExchange(&g_keyCheck, 1), InterlockedExchange(&g_pollAt, (LONG)GetTickCount() - 1000);
+                InterlockedIncrement(&g_epoch);  // every text looked at again, in the new language
+            }
+        }
+    }
     Poll();  // vrtext1: bdvr-prompts.txt saved?
     if (id != 0 && id != -1 && out && !IsBadReadPtr(out, 4))
         Check(id, out, (DWORD)__builtin_return_address(0), tbl, lang);
@@ -415,8 +510,13 @@ void LoadList(const wchar_t *def) {
     IniPath(ini);
     g_on = GetPrivateProfileIntW(L"hud", L"HidePrompts", 1, ini) != 0;
     g_vrText = GetPrivateProfileIntW(L"hud", L"VrPrompts", 1, ini) != 0;  // vrtext1
-    wcscpy(g_file, ini);
-    if (wchar_t *sl = wcsrchr(g_file, L'\\')) wcscpy(sl + 1, L"bdvr-prompts.txt");
+    wcscpy(g_dir, ini);
+    if (wchar_t *sl = wcsrchr(g_dir, L'\\')) sl[1] = 0;
+    wcscpy(g_file, g_dir), wcscat(g_file, L"bdvr-prompts.txt");
+    GetPrivateProfileStringW(L"hud", L"PromptLanguage", L"", g_langIni, 32, ini);  // lang1
+    if (!GfxProfilePath(g_prof)) g_prof[0] = 0;
+    FileTimeOf(g_prof, &g_profTime);
+    g_file[0] = 0, ChooseFile();
     GetPrivateProfileStringW(L"hud", L"HidePromptText", def, buf, 400, ini);
     for (wchar_t *p = buf; *p && g_nblock < 8;) {
         while (*p == L';' || *p == L' ') ++p;
@@ -436,7 +536,7 @@ void PromptsInstallBd(BYTE *bd) {
     // wrapper's call to it (BD+1021a493) as a second check that this is the right function.
     static const BYTE kPro[12] = {0x55, 0x8b, 0xec, 0x81, 0xec, 0x08, 0x02, 0x00, 0x00, 0x8b, 0x45, 0x14};
     static const BYTE kWrap[12] = {0x55, 0x8b, 0xec, 0x8b, 0x55, 0x10, 0x51, 0x8b, 0xc4, 0xff, 0x75, 0x0c};
-    BYTE *target = bd + 0x21a34e, *wrap = bd + 0x21a480;
+    BYTE *target = BdAt(bd, 0x21a34e), *wrap = BdAt(bd, 0x21a480);
     if (IsBadReadPtr(target, 12) || memcmp(target, kPro, 12) || IsBadReadPtr(wrap, 24) || memcmp(wrap, kWrap, 12) ||
         wrap[0x13] != 0xe8 || wrap + 0x18 + *(int *)(wrap + 0x14) != target) {
         Log("prompts: Blood Dragon text lookup doesn't match; prompt hiding off");
@@ -446,13 +546,13 @@ void PromptsInstallBd(BYTE *bd) {
     {  // vrtext1: the game's string release / build-from-text (checked by their first bytes)
         static const BYTE kRel[] = {0x55, 0x8b, 0xec, 0x56, 0x8b, 0x75, 0x08, 0x8b, 0x06, 0x85, 0xc0, 0x74, 0x15, 0x83, 0xc9, 0xff, 0xf0, 0x0f, 0xc1, 0x08};
         static const BYTE kFrom[] = {0x55, 0x8b, 0xec, 0x33, 0xc0, 0x56, 0x8b, 0xf1, 0x39, 0x45, 0x08, 0x74, 0x09, 0xff, 0x75, 0x08, 0xe8};
-        BYTE *rel = bd + 0x56c7, *from = bd + 0x5f33;
+        BYTE *rel = BdAt(bd, 0x56c7), *from = BdAt(bd, 0x5f33);
         if (!IsBadReadPtr(rel, sizeof kRel) && !memcmp(rel, kRel, sizeof kRel) && !IsBadReadPtr(from, sizeof kFrom) &&
             !memcmp(from, kFrom, sizeof kFrom))
             g_strRelease = (StrReleaseFn)rel, g_strFrom = (StrFromFn)from;
         else Log("prompts: game string calls don't match; VR texts only where they fit the game's own text");
         // vrtext2: the string table's language map find and bank fetch (the lookup's own calls)
-        BYTE *find = bd + 0x37bb5d, *get = bd + 0x219c73;
+        BYTE *find = BdAt(bd, 0x37bb5d), *get = BdAt(bd, 0x219c73);
         static const BYTE kFind[] = {0x55, 0x8b, 0xec, 0x8b, 0x51, 0x08, 0x33, 0xc0, 0x56, 0x85, 0xd2};
         static const BYTE kGet[] = {0x55, 0x8b, 0xec, 0x51, 0x8b, 0x45, 0x08, 0x56, 0x89, 0x45, 0xfc};
         if (!memcmp(find, kFind, sizeof kFind) && !memcmp(get, kGet, sizeof kGet) && target[0x1b] == 0xe8 &&

@@ -64,9 +64,9 @@ bool g_turretMotion = true;   // bd13 (DrGonzaga 12 Nov): the mounted gun follow
 void TurretInstallBd(BYTE *bd) {
     if (g_installed || !bd) return;
     static const BYTE kPro[] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83, 0xe4, 0xf0, 0x83, 0xc4, 0x04, 0x55};
-    DWORD *slot = (DWORD *)(bd + 0x158bd0c);
-    BYTE *fn = bd + 0x583763;
-    if (IsBadReadPtr(slot, 4) || *slot != (DWORD)fn || slot[-2] != (DWORD)(bd + 0x583558) || memcmp(fn, kPro, sizeof kPro)) {
+    DWORD *slot = (DWORD *)(BdAt(bd, 0x158bd0c));
+    BYTE *fn = BdAt(bd, 0x583763);
+    if (IsBadReadPtr(slot, 4) || *slot != (DWORD)fn || slot[-2] != (DWORD)(BdAt(bd, 0x583558)) || memcmp(fn, kPro, sizeof kPro)) {
         Log("turret: Blood Dragon's mounted gun code doesn't match; turret mode off");
         return;
     }

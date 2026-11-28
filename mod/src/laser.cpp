@@ -1169,7 +1169,7 @@ void LaserGameTick() {
         if (g_bloodDragon && BdEngineOn() && BdStage() >= 6) {
             BYTE *bd = (BYTE *)GetModuleHandleW(L"FC3_d3d11.dll");
             if (bd) {
-                auto at = [&](DWORD va) { return (DWORD)(bd + (va - kImageBase)); };
+                auto at = [&](DWORD va) { return (DWORD)(BdAt(bd, va)); };
                 static const BYTE kQ[] = {0x55, 0x8b, 0xec, 0x8b, 0x89, 0x90, 0x00, 0x00, 0x00, 0x5d, 0xe9};
                 static const BYTE kQ2[] = {0x53, 0x8b, 0xdc, 0x51, 0x51, 0x83, 0xe4, 0xf0, 0x83, 0xc4, 0x04, 0x55};
                 static const BYTE kF[] = {0x55, 0x8b, 0xec, 0x83, 0xec, 0x18, 0x83, 0x65, 0xf4, 0x00};

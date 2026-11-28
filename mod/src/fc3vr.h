@@ -100,6 +100,14 @@ void ScanlinesInstall(HMODULE game);  // scan1
 // In assembly on purpose: bd8 crashed because the compiler merged two casts of one pointer to
 // different calling conventions into one call (the stdcall one), leaving ecx as rubbish.
 extern "C" unsigned long __cdecl BdThisCall(void *fn, void *self, int n, ...);
+// ubi1 (gamever.cpp): which FC3_d3d11.dll build is loaded. Every Blood Dragon address in the source is the
+// Steam one; BdAt(module, address or offset) gives where that part is in the loaded build (Steam: as written;
+// Ubisoft Connect: looked up in its table).
+enum { kBdBuildUnknown = 0, kBdBuildSteam = 1, kBdBuildUbi = 2 };
+int BdBuild();
+const char *BdBuildName();
+BYTE *BdAt(const void *mod, DWORD steamAddrOrOffset);
+
 extern "C" unsigned long __cdecl BdCdeclCall(void *fn, int n, ...);
 void LogFlush();
 void InputNoteShot();  // firelag1: the player fired (bonehook ShotFix)  // quiet1: write buffered log lines now (before exiting)
@@ -353,7 +361,7 @@ bool HandsTakeDirty();         // menu: something was saved from the game thread
 void HandsControllers(const float *FL, const float *pL, const float *FR, const float *pR, float scale, bool twoHand);  // hands3
 float *HandsSmooth();  // hands6: [hands] Smoothing (s)
 float *HandsBlend();   // hands6: [hands] Blend (s)
-void HandsHead(const float *eye, const float *axes, bool scoped, const float *cam, const float *fwd);  // hands4 / hands13: view position, level axes, zoomed, camera, view forward
+void HandsHead(const float *eye, const float *axes, bool scoped, const float *cam, const float *fwd, const float *head = nullptr);  // walkhands2: head = the head's place this game frame  // hands4 / hands13: view position, level axes, zoomed, camera, view forward
 float *HandsWristBend();  // hands15
 float *HandsFreeBow();  // hands5: the same six values for the arrow hand with the bow
 float *HandsFree();  // hands3: free hand placement: right, up, forward (m), pitch, yaw, roll (deg), written for the LEFT hand
@@ -572,6 +580,7 @@ bool EngineOnFoot();  // the on-foot game camera ran in the last 200 ms
 bool EngineInVehicle();
 bool *EngineRoomScale();  // room1
 void EngineUserMoved();   // your own left stick moved (room1)
+bool EngineUserStickRecent();  // walkhands2: your own left stick moved in the last 0.3 s
 bool EngineRoomStick(SHORT *x, SHORT *y);  // room1: the left stick that walks the body to the head
 void HeadtrackShiftAnchor(float x, float z);
 float *HeadtrackHandSmoothing();
@@ -850,7 +859,6 @@ float EngineHeadDrop();     // m below the recentred height
 float *InputCrouchCap();     // adscrouch1
 float *InputSlowSpeeds();   // ads1: [0] on/off for ADS, [1] crouched
 float StockKickT();         // kick2: 0 gun close .. 1 arm out (gunstock distances)
-float GunAttachGameGunDev();  // chargeglass2: the game's own gun turn off its rest turn now (0 = at rest)
 bool GunAttachSingleShot();  // chargeglass1: the Kobracon before its full-auto upgrade (charges after every shot)
 DWORD InputLastShotT();      // chargeglass1: when the player last fired (0 never)
 float *ScopeChargeHide();    // chargeglass1: [scope] ChargeHideSeconds
